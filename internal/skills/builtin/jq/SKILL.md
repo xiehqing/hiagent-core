@@ -1,11 +1,11 @@
 ---
 name: jq
-description: Use when the user needs to query, filter, reshape, extract, create, or construct JSON data — including API responses, config files, log output, or any structured data — or when helping the user write or debug JSON transformations.
+description: Use when the user needs to query, filter, reshape, extract, create, or construct JSON data 鈥?including API responses, config files, log output, or any structured data 鈥?or when helping the user write or debug JSON transformations.
 ---
 
-# jq — Built-in JSON Processor
+# jq 鈥?Built-in JSON Processor
 
-Crush ships a built-in `jq` command (via `github.com/itchyny/gojq`) available
+HiAgent ships a built-in `jq` command (via `github.com/itchyny/gojq`) available
 in the bash tool. No external binary is required.
 
 ## Supported Flags
@@ -29,23 +29,23 @@ File arguments after the filter are also supported: `jq '.foo' file.json`.
 The built-in uses gojq, which is a pure-Go jq implementation. Key
 differences:
 
-- **No object key ordering** — keys are sorted by default; `keys_unsorted`
+- **No object key ordering** 鈥?keys are sorted by default; `keys_unsorted`
   and `-S` are unavailable.
-- **Arbitrary-precision integers** — large integers keep full precision
+- **Arbitrary-precision integers** 鈥?large integers keep full precision
   (addition, subtraction, multiplication, modulo, division when divisible).
-- **String indexing** — `"abcde"[2]` returns `"c"`.
-- **Not supported** — `--ascii-output`, `--seq`, `--stream`,
+- **String indexing** 鈥?`"abcde"[2]` returns `"c"`.
+- **Not supported** 鈥?`--ascii-output`, `--seq`, `--stream`,
   `--stream-errors`, `-f`/`--from-file`, `--slurpfile`, `--rawfile`,
   `--args`, `--jsonargs`, `input_line_number`, `$__loc__`, some regex
   features (backreferences, look-around).
-- **YAML** — gojq supports `--yaml-input`/`--yaml-output` but the
+- **YAML** 鈥?gojq supports `--yaml-input`/`--yaml-output` but the
   built-in does not currently expose these flags.
 
 ## Common Patterns
 
 Extract a field:
 ```sh
-echo '{"name":"crush"}' | jq '.name'
+echo '{"name":"hiagent"}' | jq '.name'
 ```
 
 Filter an array:
@@ -95,3 +95,4 @@ jq -n --arg msg hello '{"message": $msg}'
 - Use `try` to suppress errors on missing keys: `jq 'try .foo.bar'`
 - Use `// "default"` for fallback values: `jq '.name // "unknown"'`
 - Use `@csv`, `@tsv`, `@base64`, `@html`, `@uri` for format strings.
+

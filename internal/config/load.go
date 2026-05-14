@@ -27,8 +27,8 @@ const (
 	EnvOfGlobalConfigDIR        = "HIAGENT_GLOBAL_CONFIG"
 	EnvOfGlobalDataDIR          = "HIAGENT_GLOBAL_DATA"
 	EnvOfAgentCacheDIR          = "HIAGENT_CACHE_DIR"
-	EnvOfXDGDataDIR             = "XDG_DATA_HOME"  // xdg桌面数据目录
-	EnvOfXDGCacheDIR            = "XDG_CACHE_HOME" // xdg桌面缓存目录
+	EnvOfXDGDataDIR             = "XDG_DATA_HOME"  // xdg妗岄潰鏁版嵁鐩綍
+	EnvOfXDGCacheDIR            = "XDG_CACHE_HOME" // xdg妗岄潰缂撳瓨鐩綍
 	EnvOfWindowsUserProfileDIR  = "USERPROFILE"
 	EnvOfWindowsAppLocalDataDIR = "LOCALAPPDATA"
 	EnvOfAgentSkillsDIR         = "HIAGENT_SKILLS_DIR"
@@ -155,8 +155,8 @@ func GlobalWorkspaceDir() string {
 // GlobalCacheDir returns the path to the global cache directory for the
 // application.
 func GlobalCacheDir() string {
-	if crushCache := os.Getenv(EnvOfAgentCacheDIR); crushCache != "" {
-		return crushCache
+	if hiagentCache := os.Getenv(EnvOfAgentCacheDIR); hiagentCache != "" {
+		return hiagentCache
 	}
 	if xdgCacheHome := os.Getenv(EnvOfXDGCacheDIR); xdgCacheHome != "" {
 		return filepath.Join(xdgCacheHome, appName)
@@ -180,7 +180,7 @@ func isInsideWorktree() bool {
 	return err == nil && strings.TrimSpace(string(bts)) == "true"
 }
 
-// setDataDir 设置数据目录
+// setDataDir 璁剧疆鏁版嵁鐩綍
 func (c *Config) setDataDir(workingDir, dataDir string) {
 	if dataDir != "" {
 		c.Options.DataDirectory = dataDir
@@ -271,8 +271,8 @@ func loadFromBytes(configs [][]byte) (*Config, error) {
 
 // GlobalConfig returns the global configuration file path for the application.
 func GlobalConfig() string {
-	if crushGlobal := os.Getenv(EnvOfGlobalConfigDIR); crushGlobal != "" {
-		return filepath.Join(crushGlobal, fmt.Sprintf("%s.json", appName))
+	if hiagentGlobal := os.Getenv(EnvOfGlobalConfigDIR); hiagentGlobal != "" {
+		return filepath.Join(hiagentGlobal, fmt.Sprintf("%s.json", appName))
 	}
 	return filepath.Join(home.Config(), appName, fmt.Sprintf("%s.json", appName))
 }
@@ -280,16 +280,16 @@ func GlobalConfig() string {
 // GlobalConfigData returns the path to the main data directory for the application.
 // this config is used when the app overrides configurations instead of updating the global config.
 func GlobalConfigData() string {
-	if crushData := os.Getenv(EnvOfGlobalDataDIR); crushData != "" {
-		return filepath.Join(crushData, fmt.Sprintf("%s.json", appName))
+	if hiagentData := os.Getenv(EnvOfGlobalDataDIR); hiagentData != "" {
+		return filepath.Join(hiagentData, fmt.Sprintf("%s.json", appName))
 	}
 	if xdgDataHome := os.Getenv(EnvOfXDGDataDIR); xdgDataHome != "" {
 		return filepath.Join(xdgDataHome, appName, fmt.Sprintf("%s.json", appName))
 	}
 
 	// return the path to the main data directory
-	// for windows, it should be in `%LOCALAPPDATA%/crush/`
-	// for linux and macOS, it should be in `$HOME/.local/share/crush/`
+	// for windows, it should be in `%LOCALAPPDATA%/hiagent/`
+	// for linux and macOS, it should be in `$HOME/.local/share/hiagent/`
 	if runtime.GOOS == "windows" {
 		localAppData := cmp.Or(
 			os.Getenv(EnvOfWindowsAppLocalDataDIR),
@@ -343,11 +343,11 @@ func (c *Config) setDefaults(workingDir string) {
 	// Project specific skills dirs.
 	c.Options.SkillsPaths = append(c.Options.SkillsPaths, ProjectSkillsDir(workingDir)...)
 
-	if str, ok := os.LookupEnv("CRUSH_DISABLE_PROVIDER_AUTO_UPDATE"); ok {
+	if str, ok := os.LookupEnv("HIAGENT_DISABLE_PROVIDER_AUTO_UPDATE"); ok {
 		c.Options.DisableProviderAutoUpdate, _ = strconv.ParseBool(str)
 	}
 
-	if str, ok := os.LookupEnv("CRUSH_DISABLE_DEFAULT_PROVIDERS"); ok {
+	if str, ok := os.LookupEnv("HIAGENT_DISABLE_DEFAULT_PROVIDERS"); ok {
 		c.Options.DisableDefaultProviders, _ = strconv.ParseBool(str)
 	}
 
@@ -371,12 +371,12 @@ func (c *Config) setDefaults(workingDir string) {
 	c.Options.InitializeAs = cmp.Or(c.Options.InitializeAs, defaultInitializeAs)
 }
 
-// ProjectSkillsDir returns the default project directories for which Crush
+// ProjectSkillsDir returns the default project directories for which HiAgent
 // will look for skills.
 func ProjectSkillsDir(workingDir string) []string {
 	return []string{
 		filepath.Join(workingDir, ".agents/skills"),
-		filepath.Join(workingDir, ".crush/skills"),
+		filepath.Join(workingDir, ".hiagent/skills"),
 		filepath.Join(workingDir, ".claude/skills"),
 		filepath.Join(workingDir, ".cursor/skills"),
 	}
@@ -386,8 +386,8 @@ func ProjectSkillsDir(workingDir string) []string {
 // Skills in these directories are auto-discovered and their files can be read
 // without permission prompts.
 func GlobalSkillsDirs() []string {
-	if crushSkills := os.Getenv(EnvOfAgentSkillsDIR); crushSkills != "" {
-		return []string{crushSkills}
+	if hiagentSkills := os.Getenv(EnvOfAgentSkillsDIR); hiagentSkills != "" {
+		return []string{hiagentSkills}
 	}
 
 	paths := []string{
@@ -395,7 +395,7 @@ func GlobalSkillsDirs() []string {
 		filepath.Join(home.Config(), "agents", "skills"),
 	}
 
-	// On Windows, also load from app data on top of `$HOME/.config/crush`.
+	// On Windows, also load from app data on top of `$HOME/.config/hiagent`.
 	// This is here mostly for backwards compatibility.
 	if runtime.GOOS == "windows" {
 		appData := cmp.Or(

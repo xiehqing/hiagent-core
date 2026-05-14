@@ -28,7 +28,7 @@ func TestAppRun(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	res, err := app.SubmitMessage(context.Background(), "你好", "asdasda", false)
+	res, err := app.SubmitMessage(context.Background(), "浣犲ソ", "asdasda", false)
 	if err != nil {
 		t.Error(err)
 		return
@@ -44,7 +44,7 @@ type RunResponse struct {
 func TestNew(t *testing.T) {
 	var opts = []Option{
 		WithDatabaseDriver("mysql"),
-		WithDatabaseDSN("root:zorkdata.8888@tcp(192.168.12.34:3306)/crush_dev?charset=utf8mb4&parseTime=True&loc=Local"),
+		WithDatabaseDSN("root:zorkdata.8888@tcp(192.168.12.34:3306)/hiagent_dev?charset=utf8mb4&parseTime=True&loc=Local"),
 		WithWorkDir("C:\\projectData\\biddata\\ceshi\\bid\\extract"),
 		WithSkipPermissionRequests(true),
 		WithDebug(false),
@@ -63,7 +63,7 @@ func TestNew(t *testing.T) {
 	defer cancel()
 
 	sessionID := "appsdk-test-new"
-	prompt := "浣犲ソ"
+	prompt := "你好"
 
 	go func(ctx context.Context, sessionID, prompt string) {
 		result, err := app.SubmitMessage(ctx, prompt, sessionID, false)
@@ -117,7 +117,7 @@ func TestNew(t *testing.T) {
 func TestApi(t *testing.T) {
 	//var opts = []Option{
 	//	WithDatabaseDriver("mysql"),
-	//	WithDatabaseDSN("root:zorkdata.8888@tcp(192.168.12.34:3306)/crush_dev?charset=utf8mb4&parseTime=True&loc=Local"),
+	//	WithDatabaseDSN("root:zorkdata.8888@tcp(192.168.12.34:3306)/hiagent_dev?charset=utf8mb4&parseTime=True&loc=Local"),
 	//	WithWorkDir("C:\\projectData\\biddata\\ceshi\\bid\\extract"),
 	//	WithSkipPermissionRequests(true),
 	//	WithDebug(false),

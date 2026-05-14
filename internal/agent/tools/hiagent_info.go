@@ -14,14 +14,14 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/skills"
 )
 
-const CrushInfoToolName = "crush_info"
+const HiagentInfoToolName = "hiagent_info"
 
-//go:embed crush_info.md
-var crushInfoDescription []byte
+//go:embed hiagent_info.md
+var hiagentInfoDescription []byte
 
-type CrushInfoParams struct{}
+type HiagentInfoParams struct{}
 
-func NewCrushInfoTool(
+func NewHiagentInfoTool(
 	cfg *config.ConfigStore,
 	lspManager *lsp.Manager,
 	allSkills []*skills.Skill,
@@ -29,14 +29,14 @@ func NewCrushInfoTool(
 	skillTracker *skills.Tracker,
 ) fantasy.AgentTool {
 	return fantasy.NewAgentTool(
-		CrushInfoToolName,
-		string(crushInfoDescription),
-		func(ctx context.Context, _ CrushInfoParams, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
-			return fantasy.NewTextResponse(buildCrushInfo(cfg, lspManager, allSkills, activeSkills, skillTracker)), nil
+		HiagentInfoToolName,
+		string(hiagentInfoDescription),
+		func(ctx context.Context, _ HiagentInfoParams, _ fantasy.ToolCall) (fantasy.ToolResponse, error) {
+			return fantasy.NewTextResponse(buildHiagentInfo(cfg, lspManager, allSkills, activeSkills, skillTracker)), nil
 		})
 }
 
-func buildCrushInfo(cfg *config.ConfigStore, lspManager *lsp.Manager, allSkills []*skills.Skill, activeSkills []*skills.Skill, skillTracker *skills.Tracker) string {
+func buildHiagentInfo(cfg *config.ConfigStore, lspManager *lsp.Manager, allSkills []*skills.Skill, activeSkills []*skills.Skill, skillTracker *skills.Tracker) string {
 	var b strings.Builder
 
 	writeConfigFiles(&b, cfg)

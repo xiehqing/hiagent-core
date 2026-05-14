@@ -1,21 +1,21 @@
 ---
-name: crush-config
-description: Use when the user needs help configuring Crush — working with crush.json, setting up providers, configuring LSPs, adding MCP servers, managing skills or permissions, or changing Crush behavior.
+name: hiagent-config
+description: Use when the user needs help configuring HiAgent - working with hiagent.json, setting up providers, configuring LSPs, adding MCP servers, managing skills or permissions, or changing HiAgent behavior.
 ---
 
-# Crush Configuration
+# HiAgent Configuration
 
-Crush uses JSON configuration files with the following priority (highest to lowest):
+HiAgent currently uses JSON configuration files with the following priority (highest to lowest):
 
-1. `.crush.json` (project-local, hidden)
-2. `crush.json` (project-local)
-3. `$XDG_CONFIG_HOME/crush/crush.json` or `$HOME/.config/crush/crush.json` (global)
+1. `.hiagent.json` (project-local, hidden)
+2. `hiagent.json` (project-local)
+3. `$XDG_CONFIG_HOME/hiagent/hiagent.json` or `$HOME/.config/hiagent/hiagent.json` (global)
 
 ## Basic Structure
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://charm.land/hiagent.json",
   "models": {},
   "providers": {},
   "mcp": {},
@@ -133,7 +133,7 @@ The `$schema` property enables IDE autocomplete but is optional.
   "options": {
     "skills_paths": ["./skills"],
     "disabled_tools": ["bash", "sourcegraph"],
-    "disabled_skills": ["crush-config"],
+    "disabled_skills": ["hiagent-config"],
     "tui": {
       "compact_mode": false,
       "diff_mode": "unified",
@@ -151,8 +151,8 @@ The `$schema` property enables IDE autocomplete but is optional.
 ```
 
 > [!IMPORTANT]
-> The following skill paths are loaded by default and DO NOT NEED to be added to `skills_paths`:
-> `.agents/skills`, `.crush/skills`, `.claude/skills`, `.cursor/skills`
+> The following skill paths are loaded by default and do not need to be added to `skills_paths`:
+> `.agents/skills`, `.hiagent/skills`, `.claude/skills`, `.cursor/skills`
 
 Other options: `context_paths`, `progress`, `disable_notifications`, `disable_auto_summarize`, `disable_metrics`, `disable_provider_auto_update`, `disable_default_providers`, `data_directory`, `initialize_as`.
 
@@ -166,11 +166,11 @@ Hooks are user-defined shell commands that fire on agent events. Currently only 
     "PreToolUse": [
       {
         "matcher": "^(edit|write|multiedit)$",
-        "command": ".crush/hooks/protect-files.sh"
+        "command": ".hiagent/hooks/protect-files.sh"
       },
       {
         "matcher": "^bash$",
-        "command": ".crush/hooks/no-haskell.sh"
+        "command": ".hiagent/hooks/no-haskell.sh"
       }
     ]
   }
@@ -189,9 +189,9 @@ Event names are case-insensitive and accept snake_case variants: `PreToolUse`, `
 
 ### How Hooks Work
 
-1. When a tool is about to be called, all `PreToolUse` hooks with a matching `matcher` (or no matcher) run in parallel.
-2. Duplicate commands are deduplicated — each unique command runs at most once.
-3. The hook receives JSON on **stdin** and hook-specific **environment variables**.
+1. When a tool is about to be called, all `PreToolUse` hooks with a matching `matcher` or no matcher run in parallel.
+2. Duplicate commands are deduplicated; each unique command runs at most once.
+3. The hook receives JSON on stdin and hook-specific environment variables.
 
 ### Hook Input (stdin)
 
@@ -211,39 +211,39 @@ A JSON payload is piped to the hook command:
 
 | Variable | Description |
 |---|---|
-| `CRUSH_EVENT` | Event name (e.g. `PreToolUse`) |
-| `CRUSH_TOOL_NAME` | Name of the tool being called |
-| `CRUSH_SESSION_ID` | Current session ID |
-| `CRUSH_CWD` | Current working directory |
-| `CRUSH_PROJECT_DIR` | Project root directory |
-| `CRUSH_TOOL_INPUT_COMMAND` | Value of `command` from tool input (if present) |
-| `CRUSH_TOOL_INPUT_FILE_PATH` | Value of `file_path` from tool input (if present) |
+| `HIAGENT_EVENT` | Event name (e.g. `PreToolUse`) |
+| `HIAGENT_TOOL_NAME` | Name of the tool being called |
+| `HIAGENT_SESSION_ID` | Current session ID |
+| `HIAGENT_CWD` | Current working directory |
+| `HIAGENT_PROJECT_DIR` | Project root directory |
+| `HIAGENT_TOOL_INPUT_COMMAND` | Value of `command` from tool input (if present) |
+| `HIAGENT_TOOL_INPUT_FILE_PATH` | Value of `file_path` from tool input (if present) |
 
 ### Hook Output
 
-**Exit code 0** — the hook succeeded. Stdout is parsed as JSON:
+Exit code `0`: the hook succeeded. Stdout is parsed as JSON:
 
 ```json
 {"decision": "allow", "context": "optional context appended to tool result"}
 ```
 
-- `decision`: `allow` to explicitly allow, `deny` to block, `none` (or omit) for no opinion.
-- `reason`: Explanation text (used when denying).
+- `decision`: `allow` to explicitly allow, `deny` to block, `none` or omitted for no opinion.
+- `reason`: Explanation text used when denying.
 - `context`: Extra context appended to the tool result.
 - `updated_input`: Replacement JSON for the tool input. Last non-empty value wins.
 
-**Exit code 2** — the tool call is blocked. Stderr is used as the deny reason.
+Exit code `2`: the tool call is blocked. Stderr is used as the deny reason.
 
 ```bash
 echo "No Haskell allowed" >&2
 exit 2
 ```
 
-**Any other exit code** — non-blocking error. The tool call proceeds as normal.
+Any other exit code is treated as a non-blocking error and the tool call proceeds as normal.
 
 ### Claude Code Compatibility
 
-Crush also supports the Claude Code hook output format:
+HiAgent also supports the Claude Code hook output format:
 
 ```json
 {
@@ -261,10 +261,10 @@ Existing Claude Code hooks should work without modification.
 
 When multiple hooks match, their decisions are aggregated:
 
-- **Deny wins over allow** — if any hook denies, the tool call is blocked.
-- **Allow wins over none** — if no hook denies but at least one allows, the call proceeds.
-- All deny reasons are concatenated (newline-separated).
-- All context strings are concatenated (newline-separated).
+- Deny wins over allow. If any hook denies, the tool call is blocked.
+- Allow wins over none. If no hook denies but at least one allows, the call proceeds.
+- All deny reasons are concatenated with newlines.
+- All context strings are concatenated with newlines.
 - For `updated_input`, the last non-empty value wins.
 
 ## Tool Permissions
@@ -279,6 +279,7 @@ When multiple hooks match, their decisions are aggregated:
 
 ## Environment Variables
 
-- `CRUSH_GLOBAL_CONFIG` - Override global config location
-- `CRUSH_GLOBAL_DATA` - Override data directory location
-- `CRUSH_SKILLS_DIR` - Override default skills directory
+- `HIAGENT_GLOBAL_CONFIG` - Override global config location
+- `HIAGENT_GLOBAL_DATA` - Override data directory location
+- `HIAGENT_SKILLS_DIR` - Override default skills directory
+

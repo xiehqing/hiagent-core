@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 	"github.com/xiehqing/hiagent-core/internal/config"
-	crushlog "github.com/xiehqing/hiagent-core/internal/log"
+	hiagentlog "github.com/xiehqing/hiagent-core/internal/log"
 	"github.com/xiehqing/hiagent-core/internal/server"
 )
 
@@ -56,9 +56,9 @@ var serverCmd = &cobra.Command{
 		logFile := filepath.Join(config.GlobalCacheDir(), "server-"+safeNameRegexp.ReplaceAllString(serverHost, "_"), "hi_agent.log")
 
 		if term.IsTerminal(os.Stderr.Fd()) {
-			crushlog.Setup(logFile, debug, os.Stderr)
+			hiagentlog.Setup(logFile, debug, os.Stderr)
 		} else {
-			crushlog.Setup(logFile, debug)
+			hiagentlog.Setup(logFile, debug)
 		}
 
 		hostURL, err := server.ParseHostURL(serverHost)
@@ -68,7 +68,7 @@ var serverCmd = &cobra.Command{
 
 		srv := server.NewServer(cfg, hostURL.Scheme, hostURL.Host)
 		srv.SetLogger(slog.Default())
-		slog.Info("Starting Crush server...", "addr", serverHost)
+		slog.Info("Starting HiAgent server...", "addr", serverHost)
 
 		errch := make(chan error, 1)
 		sigch := make(chan os.Signal, 1)

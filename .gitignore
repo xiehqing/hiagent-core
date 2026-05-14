@@ -42,12 +42,13 @@ Thumbs.db
 .env
 .env.local
 
-**/.crush/**
+**/.hiagent/**
 
-/crush
+/hiagent
 /tmp/
 
 manpages/
-completions/crush.*sh
+completions/hiagent.*sh
 .prettierignore
 .task
+

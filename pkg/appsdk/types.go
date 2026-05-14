@@ -100,8 +100,8 @@ func WithAdditionalSystemPrompt(additionalSystemPrompt string) Option {
 	}
 }
 
-// createDotCrushDir creates the .crush directory in th
-func createDotCrushDir(dir string) error {
+// createDotHiAgentDir creates the .hiagent directory in th
+func createDotHiAgentDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create data directory: %q %w", dir, err)
 	}
@@ -115,7 +115,7 @@ func createDotCrushDir(dir string) error {
 	return nil
 }
 
-// DataMessage 数据消息
+// DataMessage 鏁版嵁娑堟伅
 type DataMessage struct {
 	ID               string              `json:"id"`
 	Role             message.MessageRole `json:"role"`

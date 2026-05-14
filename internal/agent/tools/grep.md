@@ -31,7 +31,7 @@ When literal_text=false (supports standard regex):
 
 <ignore_support>
 - Respects .gitignore patterns to skip ignored files/directories
-- Respects .crushignore patterns for additional ignore rules
+- Respects .hiagentignore patterns for additional ignore rules
 - Both ignore files auto-detected in search root directory
 </ignore_support>
 
@@ -47,3 +47,4 @@ When literal_text=false (supports standard regex):
 - Check if results truncated and refine search pattern if needed
 - Use literal_text=true for exact text with special characters (dots, parentheses, etc.)
 </tips>
+

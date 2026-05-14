@@ -34,7 +34,7 @@ var fastIgnoreDirs = map[string]bool{
 	".Trash":          true,
 	".Spotlight-V100": true,
 	".fseventsd":      true,
-	".crush":          true,
+	".hiagent":        true,
 	"OrbStack":        true,
 	".local":          true,
 	".share":          true,
@@ -108,14 +108,14 @@ var gitGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
 	return parsePatterns(strings.Split(string(bts), "\n"), nil)
 })
 
-// crushGlobalIgnorePatterns returns patterns from the user's
-// ~/.config/crush/ignore file.
-var crushGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
-	name := filepath.Join(home.Config(), "crush", "ignore")
+// hiagentGlobalIgnorePatterns returns patterns from the user's
+// ~/.config/hiagent/ignore file.
+var hiagentGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
+	name := filepath.Join(home.Config(), "hiagent", "ignore")
 	bts, err := os.ReadFile(name)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			slog.Debug("Failed to read crush global ignore file", "path", name, "error", err)
+			slog.Debug("Failed to read hiagent global ignore file", "path", name, "error", err)
 		}
 		return nil
 	}
@@ -138,7 +138,7 @@ func parsePatterns(lines []string, domain []string) []gitignore.Pattern {
 }
 
 type directoryLister struct {
-	// dirPatterns caches parsed patterns from .gitignore/.crushignore for each directory.
+	// dirPatterns caches parsed patterns from .gitignore/.hiagentignore for each directory.
 	// This avoids re-reading files when building combined matchers.
 	dirPatterns *csync.Map[string, []gitignore.Pattern]
 	// combinedMatchers caches a combined matcher for each directory that includes
@@ -165,7 +165,7 @@ func pathToComponents(path string) []string {
 }
 
 // getDirPatterns returns the parsed patterns for a specific directory's
-// .gitignore and .crushignore files. Results are cached.
+// .gitignore and .hiagentignore files. Results are cached.
 func (dl *directoryLister) getDirPatterns(dir string) []gitignore.Pattern {
 	return dl.dirPatterns.GetOrSet(dir, func() []gitignore.Pattern {
 		var allPatterns []gitignore.Pattern
@@ -176,7 +176,7 @@ func (dl *directoryLister) getDirPatterns(dir string) []gitignore.Pattern {
 			domain = pathToComponents(relPath)
 		}
 
-		for _, ignoreFile := range []string{".gitignore", ".crushignore"} {
+		for _, ignoreFile := range []string{".gitignore", ".hiagentignore"} {
 			ignPath := filepath.Join(dir, ignoreFile)
 			if content, err := os.ReadFile(ignPath); err == nil {
 				lines := strings.Split(string(content), "\n")
@@ -197,9 +197,9 @@ func (dl *directoryLister) getCombinedMatcher(dir string) gitignore.Matcher {
 		// Add common patterns first (lowest priority).
 		allPatterns = append(allPatterns, commonIgnorePatterns()...)
 
-		// Add global ignore patterns (git core.excludesFile + crush global ignore).
+		// Add global ignore patterns (git core.excludesFile + hiagent global ignore).
 		allPatterns = append(allPatterns, gitGlobalIgnorePatterns()...)
-		allPatterns = append(allPatterns, crushGlobalIgnorePatterns()...)
+		allPatterns = append(allPatterns, hiagentGlobalIgnorePatterns()...)
 
 		// Collect patterns from root to this directory.
 		relDir, _ := filepath.Rel(dl.rootPath, dir)

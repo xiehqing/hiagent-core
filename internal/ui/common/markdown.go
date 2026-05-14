@@ -9,7 +9,7 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/ui/xchroma"
 )
 
-const formatterName = "crush"
+const formatterName = "hiagent"
 
 func init() {
 	// NOTE: Glamour does not offer us an option to pass the formatter

@@ -82,7 +82,7 @@ func NewShell(opts *Options) *Shell {
 		env = os.Environ()
 	}
 
-	// Allow tools to detect execution by Crush.
+	// Allow tools to detect execution by HiAgent.
 	env = append(
 		env,
 		"HIAGENT=1",

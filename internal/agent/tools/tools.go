@@ -71,10 +71,10 @@ func NewPermissionDeniedResponse() fantasy.ToolResponse {
 
 // FirstLineDescription returns just the first non-empty line from the embedded
 // markdown description. The full description can be used by setting
-// CRUSH_SHORT_TOOL_DESCRIPTIONS=0.
+// HIAGENT_SHORT_TOOL_DESCRIPTIONS=0.
 func FirstLineDescription(content []byte) string {
 	if !testing.Testing() {
-		if v, err := strconv.ParseBool(os.Getenv("CRUSH_SHORT_TOOL_DESCRIPTIONS")); err == nil && !v {
+		if v, err := strconv.ParseBool(os.Getenv("HIAGENT_SHORT_TOOL_DESCRIPTIONS")); err == nil && !v {
 			return strings.TrimSpace(string(content))
 		}
 	}

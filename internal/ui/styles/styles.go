@@ -17,34 +17,34 @@ import (
 )
 
 const (
-	CheckIcon   string = "✓"
-	SpinnerIcon string = "⋯"
-	LoadingIcon string = "⟳"
-	ModelIcon   string = "◇"
+	CheckIcon   string = "[x]"
+	SpinnerIcon string = "*"
+	LoadingIcon string = "..."
+	ModelIcon   string = "M"
 
-	ArrowRightIcon string = "→"
+	ArrowRightIcon string = ">"
 
-	ToolPending string = "●"
-	ToolSuccess string = "✓"
-	ToolError   string = "×"
+	ToolPending string = "..."
+	ToolSuccess string = "[ok]"
+	ToolError   string = "[!]"
 
-	RadioOn  string = "◉"
-	RadioOff string = "○"
+	RadioOn  string = "(*)"
+	RadioOff string = "( )"
 
-	BorderThin  string = "│"
-	BorderThick string = "▌"
+	BorderThin  string = "-"
+	BorderThick string = "="
 
-	SectionSeparator string = "─"
+	SectionSeparator string = "|"
 
-	TodoCompletedIcon  string = "✓"
-	TodoPendingIcon    string = "•"
-	TodoInProgressIcon string = "→"
+	TodoCompletedIcon  string = "[x]"
+	TodoPendingIcon    string = "[ ]"
+	TodoInProgressIcon string = "[~]"
 
-	ImageIcon string = "■"
-	TextIcon  string = "≡"
+	ImageIcon string = "[img]"
+	TextIcon  string = "[txt]"
 
-	ScrollbarThumb string = "┃"
-	ScrollbarTrack string = "│"
+	ScrollbarThumb string = "#"
+	ScrollbarTrack string = "|"
 
 	LSPErrorIcon   string = "E"
 	LSPWarningIcon string = "W"
@@ -60,17 +60,17 @@ const (
 type Styles struct {
 	// Header
 	Header struct {
-		Charm             lipgloss.Style // Style for "Charm™" label
-		Diagonals         lipgloss.Style // Style for diagonal separators (╱)
+		Charm             lipgloss.Style // Style for "Charm" label
+		Diagonals         lipgloss.Style // Style for diagonal separators
 		Percentage        lipgloss.Style // Style for context percentage
 		Keystroke         lipgloss.Style // Style for keystroke hints (e.g., "ctrl+d")
 		KeystrokeTip      lipgloss.Style // Style for keystroke action text (e.g., "open", "close")
 		WorkingDir        lipgloss.Style // Style for current working directory
-		Separator         lipgloss.Style // Style for separator dots (•)
+		Separator         lipgloss.Style // Style for separator dots (鈥?
 		Wrapper           lipgloss.Style // Outer container for the entire header row
-		LogoGradCanvas    lipgloss.Style // Canvas for the compact "CRUSH" gradient
-		LogoGradFromColor color.Color    // "CRUSH" wordmark gradient start
-		LogoGradToColor   color.Color    // "CRUSH" wordmark gradient end
+		LogoGradCanvas    lipgloss.Style // Canvas for the compact "HIAGENT" gradient
+		LogoGradFromColor color.Color    // "HIAGENT" wordmark gradient start
+		LogoGradToColor   color.Color    // "HIAGENT" wordmark gradient end
 	}
 
 	CompactDetails struct {
@@ -139,11 +139,11 @@ type Styles struct {
 		TitleColorB        color.Color
 		CharmColor         color.Color
 		VersionColor       color.Color
-		SmallCharm         lipgloss.Style // "Charm™" label in SmallRender
+		SmallCharm         lipgloss.Style // "Charm" label in SmallRender
 		SmallDiagonals     lipgloss.Style // Diagonal line fill in SmallRender
 		GradCanvas         lipgloss.Style // Blank canvas for gradient painting
-		SmallGradFromColor color.Color    // Small "Crush" wordmark gradient start
-		SmallGradToColor   color.Color    // Small "Crush" wordmark gradient end
+		SmallGradFromColor color.Color    // Small "HiAgent" wordmark gradient start
+		SmallGradToColor   color.Color    // Small "HiAgent" wordmark gradient end
 	}
 
 	// Working indicator gradient (spinners/shimmers on assistant "thinking",
@@ -181,7 +181,7 @@ type Styles struct {
 
 	// ModelInfo (model name, provider, reasoning, token/cost summary)
 	ModelInfo struct {
-		Icon             lipgloss.Style // Model icon (◇)
+		Icon             lipgloss.Style // Model icon (鈼?
 		Name             lipgloss.Style // Model name text
 		Provider         lipgloss.Style // "via <provider>" text
 		ProviderFallback lipgloss.Style // Provider on its own second line
@@ -202,7 +202,7 @@ type Styles struct {
 		BusyIcon        lipgloss.Style // Busy/starting status icon
 		ErrorIcon       lipgloss.Style // Error status icon
 		OnlineIcon      lipgloss.Style // Online/ready status icon
-		AdditionalText  lipgloss.Style // "None" and "…and N more" text
+		AdditionalText  lipgloss.Style // "None" and "鈥nd N more" text
 		CapabilityCount lipgloss.Style // "N tools" / "N prompts" / "N resources"
 		RowTitleBase    lipgloss.Style // Base style applied over row titles in common.Status
 		RowDescBase     lipgloss.Style // Base style applied over row descriptions in common.Status
@@ -217,7 +217,7 @@ type Styles struct {
 		Deletions      lipgloss.Style
 		SectionTitle   lipgloss.Style // "Modified Files" heading
 		EmptyMessage   lipgloss.Style // "None" placeholder when no files
-		TruncationHint lipgloss.Style // "…and N more" message
+		TruncationHint lipgloss.Style // "鈥nd N more" message
 	}
 
 	// Chat
@@ -239,7 +239,7 @@ type Styles struct {
 
 		// Thinking section styles
 		ThinkingBox            lipgloss.Style // Background for thinking content
-		ThinkingTruncationHint lipgloss.Style // "… (N lines hidden)" hint
+		ThinkingTruncationHint lipgloss.Style // "鈥?(N lines hidden)" hint
 		ThinkingFooterTitle    lipgloss.Style // "Thought for" text
 		ThinkingFooterDuration lipgloss.Style // Duration value
 		AssistantInfoIcon      lipgloss.Style
@@ -267,7 +267,7 @@ type Styles struct {
 
 		// Content rendering styles
 		ContentLine           lipgloss.Style // Individual content line with background and width
-		ContentTruncation     lipgloss.Style // Truncation message "… (N lines)"
+		ContentTruncation     lipgloss.Style // Truncation message "鈥?(N lines)"
 		ContentCodeLine       lipgloss.Style // Code line with background and width
 		ContentCodeTruncation lipgloss.Style // Code truncation message with bgBase
 		ContentCodeBg         color.Color    // Background color for syntax highlighting
@@ -314,7 +314,7 @@ type Styles struct {
 		TodoCompletedIcon  lipgloss.Style // Completed todo icon
 		TodoInProgressIcon lipgloss.Style // In-progress todo icon
 		TodoPendingIcon    lipgloss.Style // Pending todo icon
-		TodoStatusNote     lipgloss.Style // " · completed N" / " · starting task" trailing note
+		TodoStatusNote     lipgloss.Style // " 路 completed N" / " 路 starting task" trailing note
 		TodoItem           lipgloss.Style // Default body text for todo list items
 		TodoJustStarted    lipgloss.Style // Text of the just-started todo in tool-call bodies
 
@@ -348,7 +348,7 @@ type Styles struct {
 
 		// Tool result helpers.
 		ResultEmpty      lipgloss.Style // "No results" placeholder
-		ResultTruncation lipgloss.Style // "… and N more" truncation line
+		ResultTruncation lipgloss.Style // "鈥?and N more" truncation line
 		ResultItemName   lipgloss.Style // Item name (left column in result lists)
 		ResultItemDesc   lipgloss.Style // Item description (right column)
 	}
@@ -359,9 +359,9 @@ type Styles struct {
 		TitleText          lipgloss.Style
 		TitleError         lipgloss.Style
 		TitleAccent        lipgloss.Style
-		TitleLineBase      lipgloss.Style // Base for the gradient ╱╱╱ next to dialog titles
-		TitleGradFromColor color.Color    // Default dialog title ╱╱╱ gradient start
-		TitleGradToColor   color.Color    // Default dialog title ╱╱╱ gradient end
+		TitleLineBase      lipgloss.Style // Base for the gradient 鈺扁暠鈺?next to dialog titles
+		TitleGradFromColor color.Color    // Default dialog title 鈺扁暠鈺?gradient start
+		TitleGradToColor   color.Color    // Default dialog title 鈺扁暠鈺?gradient end
 		// View is the main content area style.
 		View          lipgloss.Style
 		PrimaryText   lipgloss.Style

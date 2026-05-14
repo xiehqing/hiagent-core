@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	headerDiag           = "╱"
+	headerDiag           = "/"
 	minHeaderDiags       = 3
 	leftPadding          = 1
 	rightPadding         = 1
@@ -45,8 +45,8 @@ func newHeader(com *common.Common) *header {
 // after the theme changes.
 func (h *header) refresh() {
 	t := h.com.Styles
-	h.compactLogo = t.Header.Charm.Render("Charm™") + " " +
-		styles.ApplyBoldForegroundGrad(t.Header.LogoGradCanvas, "CRUSH", t.Header.LogoGradFromColor, t.Header.LogoGradToColor) + " "
+	h.compactLogo = t.Header.Charm.Render("Charm") + " " +
+		styles.ApplyBoldForegroundGrad(t.Header.LogoGradCanvas, "HIAGENT", t.Header.LogoGradFromColor, t.Header.LogoGradToColor) + " "
 	// Force drawHeader to re-render the wide logo on the next frame.
 	h.width = 0
 	h.logo = ""
@@ -146,7 +146,7 @@ func renderHeaderDetails(
 		parts = append(parts, t.Header.Keystroke.Render(keystroke)+t.Header.KeystrokeTip.Render(" open "))
 	}
 
-	dot := t.Header.Separator.Render(" • ")
+	dot := t.Header.Separator.Render(" | ")
 	metadata := strings.Join(parts, dot)
 	metadata = dot + metadata
 
@@ -155,5 +155,5 @@ func renderHeaderDetails(
 	cwd = t.Header.WorkingDir.Render(cwd)
 
 	result := cwd + metadata
-	return ansi.Truncate(result, max(0, availWidth), "…")
+	return ansi.Truncate(result, max(0, availWidth), "...")
 }

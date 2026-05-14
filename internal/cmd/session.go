@@ -34,7 +34,7 @@ var sessionCmd = &cobra.Command{
 	Use:     "session",
 	Aliases: []string{"sessions", "s"},
 	Short:   "Manage sessions",
-	Long:    "Manage Crush sessions. Agents can use --json for machine-readable output.",
+	Long:    "Manage HiAgent sessions. Agents can use --json for machine-readable output.",
 }
 
 var (
@@ -187,7 +187,7 @@ func runSessionList(cmd *cobra.Command, _ []string) error {
 		hash := session.HashID(s.ID)[:7]
 		date := time.Unix(s.CreatedAt, 0).Format(time.RFC3339)
 		title := strings.ReplaceAll(s.Title, "\n", " ")
-		title = ansi.Truncate(title, titleWidth, "…")
+		title = ansi.Truncate(title, titleWidth, "...")
 		_, writeErr = fmt.Fprintln(w, hashStyle.Render(hash), dateStyle.Render(date), title)
 		if writeErr != nil {
 			break
@@ -253,7 +253,7 @@ func resolveSessionID(ctx context.Context, svc session.Service, id string) (sess
 		created := time.Unix(m.CreatedAt, 0).Format("2006-01-02")
 		// Keep title on one line by replacing newlines with spaces, and truncate.
 		title := strings.ReplaceAll(m.Title, "\n", " ")
-		title = ansi.Truncate(title, 50, "…")
+		title = ansi.Truncate(title, 50, "...")
 		fmt.Fprintf(&sb, "  %s... %q (created %s)\n", hash[:12], title, created)
 	}
 	sb.WriteString("\nUse more characters or the full hash")

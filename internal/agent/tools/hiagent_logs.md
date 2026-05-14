@@ -1,8 +1,8 @@
-Read Crush's internal application logs (default 50 entries, max 100); useful for diagnosing provider errors, tool failures, LSP/MCP issues.
+Read Hiagent's internal application logs (default 50 entries, max 100); useful for diagnosing provider errors, tool failures, LSP/MCP issues.
 
 <usage>
-- Returns recent log entries from Crush's internal log file
-- Use to diagnose issues with Crush itself (provider errors, tool failures,
+- Returns recent log entries from Hiagent's internal log file
+- Use to diagnose issues with Hiagent itself (provider errors, tool failures,
   LSP problems, MCP connection issues)
 - Entries shown in compact format: TIME LEVEL SOURCE MESSAGE key=value...
 </usage>

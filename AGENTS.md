@@ -1,10 +1,10 @@
-# Crush (hiagent) Codebase Guide
+# HiAgent (hiagent) Codebase Guide
 
 This document captures non-obvious patterns, architecture decisions, and gotchas for AI agents working in this codebase.
 
 ## Overview
 
-Crush (`/hiagent`) is a terminal-first AI coding assistant. It can run interactively (Bubble Tea TUI) or non-interactively (`crush run`), and supports a client/server split (`CRUSH_CLIENT_SERVER=1`). The module path is `github.com/xiehqing/hiagent-core`.
+HiAgent (`/hiagent`) is a terminal-first AI coding assistant. It can run interactively (Bubble Tea TUI) or non-interactively (`hiagent run`), and supports a client/server split (`HIAGENT_CLIENT_SERVER=1`). The module path is `github.com/xiehqing/hiagent-core`.
 
 The project uses [Bubble Tea v2](https://charm.land/bubbletea/v2), [Lip Gloss v2](https://charm.land/lipgloss/v2), [Fantasy](https://charm.land/fantasy) (AI agent framework), [Catwalk](https://charm.land/catwalk/pkg/catwalk) (provider catalog), [Ultraviolet](https://github.com/charmbracelet/ultraviolet) (terminal screen buffer), and [Cobra](https://github.com/spf13/cobra) for CLI.
 
@@ -21,67 +21,67 @@ The project uses [Bubble Tea v2](https://charm.land/bubbletea/v2), [Lip Gloss v2
 | Start server | `go run . server` |
 | Check log capitalization | `./scripts/check_log_capitalization.sh` |
 
-Test files are numerous — 60+ scattered across packages. The DB package (`internal/db/`) uses sqlc-generated code (`*sql.go` files). Some tests use test stores (`internal/config/test_store.go`).
+Test files are numerous 鈥?60+ scattered across packages. The DB package (`internal/db/`) uses sqlc-generated code (`*sql.go` files). Some tests use test stores (`internal/config/test_store.go`).
 
 ## Project Structure
 
 ```
-main.go                  — Entry point (pprof, cmd.Execute())
+main.go                  鈥?Entry point (pprof, cmd.Execute())
 internal/
-  app/                   — Wires services; main App struct (lifecycle coordinator)
-  agent/                 — AI agent orchestration (Coordinator, SessionAgent)
-    tools/               — Individual LLM tool implementations + MCP integration
-    templates/           — Title/summary prompt templates (embedded via go:embed)
-  cmd/                   — Cobra commands (root, run, server, dirs, session, etc.)
-  config/                — Config loading/merging (files + DB; hybrid state)
-  server/                — HTTP server (Unix socket / named pipe) + v1 API handlers
-  client/                — HTTP client SDK for server mode
-  workspace/             — Workspace interface (local AppWorkspace vs remote ClientWorkspace)
-  ui/                    — Bubble Tea TUI (see internal/ui/AGENTS.md)
-  db/                    — SQL queries (sqlc-generated), DB connection
-  session/               — Session service and model
-  message/               — Message service and content parts
-  provider/              — Provider service
-  permission/            — Permission request service
-  lsp/                   — LSP manager and client
-  hooks/                 — Hook runner (pre/post tool use hooks)
-  skills/                — Agent skill loading
-  mcp/                   — MCP tool integration (via go-sdk)
-  pubsub/                — Generic pub/sub broker
-  csync/                 — Concurrent-safe wrappers (Value, Map, Slice)
-  event/                 — Telemetry/metrics events
-  shell/                 — Shell command execution (background jobs)
-  fsext/                 — File system extensions (lookup, ls, paste, ignore)
-  filepathext/           — File path pattern matching
-  filetracker/           — Tracks which files an agent has read
-  history/               — File history service (for file operations)
-  format/                — Spinner animation
-  diff/                  — Diff utilities
-  diffdetect/            — Language detection for diffs
-  stringext/             — String utilities (capitalization, base64, etc.)
-  ansiext/               — ANSI handling extensions
-  home/                  — Home directory utilities
-  env/                   — Environment variable resolution
-  oauth/                 — OAuth token management + Copilot integration
-  projects/              — Project registration
-  version/               — Version info
-  update/                — Update checking
-  log/                   — Log setup (lumberjack rotation)
-proto/                   — Protocol-level types (shared between internal/client and internal/server)
+  app/                   鈥?Wires services; main App struct (lifecycle coordinator)
+  agent/                 鈥?AI agent orchestration (Coordinator, SessionAgent)
+    tools/               鈥?Individual LLM tool implementations + MCP integration
+    templates/           鈥?Title/summary prompt templates (embedded via go:embed)
+  cmd/                   鈥?Cobra commands (root, run, server, dirs, session, etc.)
+  config/                鈥?Config loading/merging (files + DB; hybrid state)
+  server/                鈥?HTTP server (Unix socket / named pipe) + v1 API handlers
+  client/                鈥?HTTP client SDK for server mode
+  workspace/             鈥?Workspace interface (local AppWorkspace vs remote ClientWorkspace)
+  ui/                    鈥?Bubble Tea TUI (see internal/ui/AGENTS.md)
+  db/                    鈥?SQL queries (sqlc-generated), DB connection
+  session/               鈥?Session service and model
+  message/               鈥?Message service and content parts
+  provider/              鈥?Provider service
+  permission/            鈥?Permission request service
+  lsp/                   鈥?LSP manager and client
+  hooks/                 鈥?Hook runner (pre/post tool use hooks)
+  skills/                鈥?Agent skill loading
+  mcp/                   鈥?MCP tool integration (via go-sdk)
+  pubsub/                鈥?Generic pub/sub broker
+  csync/                 鈥?Concurrent-safe wrappers (Value, Map, Slice)
+  event/                 鈥?Telemetry/metrics events
+  shell/                 鈥?Shell command execution (background jobs)
+  fsext/                 鈥?File system extensions (lookup, ls, paste, ignore)
+  filepathext/           鈥?File path pattern matching
+  filetracker/           鈥?Tracks which files an agent has read
+  history/               鈥?File history service (for file operations)
+  format/                鈥?Spinner animation
+  diff/                  鈥?Diff utilities
+  diffdetect/            鈥?Language detection for diffs
+  stringext/             鈥?String utilities (capitalization, base64, etc.)
+  ansiext/               鈥?ANSI handling extensions
+  home/                  鈥?Home directory utilities
+  env/                   鈥?Environment variable resolution
+  oauth/                 鈥?OAuth token management + Copilot integration
+  projects/              鈥?Project registration
+  version/               鈥?Version info
+  update/                鈥?Update checking
+  log/                   鈥?Log setup (lumberjack rotation)
+proto/                   鈥?Protocol-level types (shared between internal/client and internal/server)
 pkg/
-  appsdk/                — App SDK (external-facing programmatic API)
+  appsdk/                鈥?App SDK (external-facing programmatic API)
 scripts/
-  check_log_capitalization.sh  — Linter: verifies slog log messages start with capital letters
-  run-labeler.sh               — Label runner script
-.hi_agent/               — Default data directory (created at runtime)
+  check_log_capitalization.sh  鈥?Linter: verifies slog log messages start with capital letters
+  run-labeler.sh               鈥?Label runner script
+.hi_agent/               鈥?Default data directory (created at runtime)
 ```
 
 ## Architecture & Data Flow
 
 ### Two Deployment Modes
 
-1. **Local (default)**: Everything in-process. `main.go` → `cmd.setupLocalWorkspace()` → creates `app.App` → wraps in `workspace.AppWorkspace`.
-2. **Client/Server** (`CRUSH_CLIENT_SERVER=1`): CLI connects to a detached server via Unix socket or Windows named pipe. `cmd.setupClientServerWorkspace()` → `client.Client` + `workspace.ClientWorkspace` → HTTP API to server.
+1. **Local (default)**: Everything in-process. `main.go` 鈫?`cmd.setupLocalWorkspace()` 鈫?creates `app.App` 鈫?wraps in `workspace.AppWorkspace`.
+2. **Client/Server** (`HIAGENT_CLIENT_SERVER=1`): CLI connects to a detached server via Unix socket or Windows named pipe. `cmd.setupClientServerWorkspace()` 鈫?`client.Client` + `workspace.ClientWorkspace` 鈫?HTTP API to server.
 
 ### Workspace Interface
 
@@ -111,14 +111,14 @@ The `workspace.Workspace` interface (`internal/workspace/workspace.go`) is the c
 
 ### Agent System
 
-- `Coordinator` (`internal/agent/coordinator.go`) — top-level orchestrator; creates the coder `SessionAgent`, bridges config/fantasy models, manages tool registration (built-in tools + MCP tools + skills)
-- `SessionAgent` (`internal/agent/agent.go`) — per-session agent; handles queuing, auto-summarization, tool call/result lifecycle, streaming callbacks
+- `Coordinator` (`internal/agent/coordinator.go`) 鈥?top-level orchestrator; creates the coder `SessionAgent`, bridges config/fantasy models, manages tool registration (built-in tools + MCP tools + skills)
+- `SessionAgent` (`internal/agent/agent.go`) 鈥?per-session agent; handles queuing, auto-summarization, tool call/result lifecycle, streaming callbacks
 - Uses `charm.land/fantasy` under the hood with provider implementations for OpenAI, Anthropic, Google, Bedrock, OpenRouter, Vercel, Azure, and custom openai-compatible
 - Tool execution is handled via `fantasy.AgentTool` interface
 
 ### Configuration System (`internal/config/`)
 
-**⚠️ Important**: The config system is in a **hybrid file/DB migration** state. See `internal/config/db_migration_review.md` for the full audit.
+**鈿狅笍 Important**: The config system is in a **hybrid file/DB migration** state. See `internal/config/db_migration_review.md` for the full audit.
 
 - Config is loaded from multiple sources: embedded defaults, provider cache files, custom provider JSON files, DB records (`data_config`, `providers` tables)
 - `ConfigStore` wraps `*config.Config` with overrides, staleness detection, and scope-aware write operations
@@ -152,7 +152,7 @@ The `pubsub.Broker` (`internal/pubsub/broker.go`) is the backbone for event prop
 - **Log messages must start with a capital letter**. Enforced by `scripts/check_log_capitalization.sh` which greps for `slog.(Error|Info|Warn|Debug).*("[a-z]'`. This is a hard CI-style lint rule.
 - **Error variables**: follow Go convention: `errXxx` for package-level sentinel errors (see `internal/agent/agent.go` line ~54: `ErrEmptyPrompt`, `ErrSessionMissing`; `internal/agent/coordinator.go` line ~54: `errCoderAgentNotConfigured`)
 - **Comments**: package-level doc comments describe the package's purpose and non-obvious semantics (see `internal/agent/agent.go` line 1, `internal/app/app.go` line 1)
-- **Import grouping**: standard library first, then charm/land, then external, then internal — with blank line separators between groups
+- **Import grouping**: standard library first, then charm/land, then external, then internal 鈥?with blank line separators between groups
 - **Platform-specific files**: use `_windows.go`, `_other.go`, `_darwin.go` suffixes (see `internal/cmd/root_windows.go`, `internal/server/net_windows.go`)
 - **Embedded files**: templates and config via `//go:embed` (see `internal/agent/templates/`, `internal/cmd/gitignore/`)
 
@@ -164,7 +164,7 @@ The TUI has a comprehensive set of development instructions in `internal/ui/AGEN
 - **Centralized message handling**: the main `UI` model is the sole Bubble Tea model; sub-components use imperative methods, not standard Elm Update
 - **Focus state routing**: `uiFocusEditor` vs `uiFocusMain`
 - **Lazy rendering**: `list.List` only renders visible items
-- Use `github.com/charmbracelet/x/ansi` for ANSI-safe string manipulation — never manipulate at byte level
+- Use `github.com/charmbracelet/x/ansi` for ANSI-safe string manipulation 鈥?never manipulate at byte level
 
 ### Testing Patterns
 
@@ -183,7 +183,7 @@ The TUI has a comprehensive set of development instructions in `internal/ui/AGEN
 
 3. **Progress bar hack**: Non-interactive mode reinitializes the terminal progress bar (`ansi.SetIndeterminateProgressBar`) on every loop iteration to prevent the terminal from hiding it due to inactivity.
 
-4. **Anthropic caching**: Caching is enabled by default for Anthropic/Bedrock models but can be disabled via `CRUSH_DISABLE_ANTHROPIC_CACHE=1`.
+4. **Anthropic caching**: Caching is enabled by default for Anthropic/Bedrock models but can be disabled via `HIAGENT_DISABLE_ANTHROPIC_CACHE=1`.
 
 5. **Provider media limitation workaround**: OpenAI/Google providers don't support images in tool result messages. The agent converts media in tool results to a text placeholder + a subsequent user message with the image as a file attachment. Anthropic and Bedrock support images natively, so the workaround is skipped for them.
 
@@ -197,7 +197,7 @@ The TUI has a comprehensive set of development instructions in `internal/ui/AGEN
 
 10. **Version mismatch handling**: `ensureServer()` checks if the running server version matches the client; on mismatch, it shuts down the old server and starts a fresh one. The old socket is force-removed after 2 seconds of waiting.
 
-11. **Non-interactive session auto-approval**: When running via `crush run`, all permission requests for that session are auto-approved (`app.Permissions.AutoApproveSession(sess.ID)`).
+11. **Non-interactive session auto-approval**: When running via `hiagent run`, all permission requests for that session are auto-approved (`app.Permissions.AutoApproveSession(sess.ID)`).
 
 12. **Small model fallback for title generation**: Title generation tries the small model first; if that fails, it falls back to the large model. If both fail, it uses "Untitled Session".
 
@@ -205,14 +205,15 @@ The TUI has a comprehensive set of development instructions in `internal/ui/AGEN
 
 14. **Config staleness**: The `ConfigStore` tracks file staleness via file size and ModTime snapshots. This doesn't work with DB-backed config (part of the ongoing DB migration issue).
 
-15. **Workspace config file override**: Despite the DB migration, workspace config overrides are still read from a separate JSON file (`crush.json` or `hiagent.json`) in the working directory. Global config comes from DB. This dual-source approach leads to priority ambiguity.
+15. **Workspace config file override**: Despite the DB migration, workspace config overrides are still read from a separate JSON file (`hiagent.json` or `hiagent.json`) in the working directory. Global config comes from DB. This dual-source approach leads to priority ambiguity.
 
 16. **MCP instruction injection**: MCP server initialization results include instructions that get injected into the system prompt between `<mcp-instructions>` tags.
 
-17. **spinner uses stderr**: The non-interactive spinner writes to stderr, not stdout. This ensures piped output (`crush run ... > file`) doesn't capture spinner animations.
+17. **spinner uses stderr**: The non-interactive spinner writes to stderr, not stdout. This ensures piped output (`hiagent run ... > file`) doesn't capture spinner animations.
 
-18. **windows named pipes**: On Windows, the server uses `npipe:////./pipe/crush-{uid}.sock`. On Unix, it uses `unix:///tmp/crush-{uid}.sock`.
+18. **windows named pipes**: On Windows, the server uses `npipe:////./pipe/hiagent-{uid}.sock`. On Unix, it uses `unix:///tmp/hiagent-{uid}.sock`.
 
 ## Library Notice
 
 All internal Charm libraries use the `charm.land` vanity domain (not `github.com/charmbracelet`), e.g., `charm.land/bubbletea/v2`, `charm.land/lipgloss/v2`, `charm.land/fantasy`, `charm.land/catwalk/pkg/catwalk`. The `github.com/charmbracelet/x/*` packages provide ANSI, term, and exp utilities.
+

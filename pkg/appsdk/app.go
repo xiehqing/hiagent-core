@@ -49,7 +49,7 @@ func applyRuntimeDatabaseOverride(store *config.ConfigStore, dc *DatabaseConfig)
 	}
 }
 
-// NewDBService 创建db服务
+// NewDBService 鍒涘缓db鏈嶅姟
 func NewDBService(conn *sql.DB) (*AppService, error) {
 	q := db.New(conn)
 	sessions := session.NewService(q, conn)
@@ -147,7 +147,7 @@ func New(ctx context.Context, opts ...Option) (*App, error) {
 	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
 	applyRuntimeDatabaseOverride(cfg, &o.cfg.Database)
 	if o.cfg.Database.Driver == DatabaseDriverSqlite {
-		if err = createDotCrushDir(cfg.Config().Options.DataDirectory); err != nil {
+		if err = createDotHiAgentDir(cfg.Config().Options.DataDirectory); err != nil {
 			return nil, fmt.Errorf("sdk.New: failed to create data directory: %w", err)
 		}
 	}
@@ -190,7 +190,7 @@ func NewWithDB(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) 
 	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
 	applyRuntimeDatabaseOverride(cfg, &o.cfg.Database)
 	if o.cfg.Database.Driver == DatabaseDriverSqlite {
-		if err = createDotCrushDir(cfg.Config().Options.DataDirectory); err != nil {
+		if err = createDotHiAgentDir(cfg.Config().Options.DataDirectory); err != nil {
 			return nil, fmt.Errorf("sdk.New: failed to create data directory: %w", err)
 		}
 	}
@@ -266,8 +266,8 @@ func (a *App) Shutdown() {
 	a.AppInstance.Shutdown()
 }
 
-// Providers 获取提供商
-//func (a *App) Providers() ([]config.ProviderItem, error) {
+// Providers returns the available providers.
+// func (a *App) Providers() ([]config.ProviderItem, error) {
 //	providers, err := a.AppInstance.Store().Providers()
 //	if err != nil {
 //		return nil, fmt.Errorf("sdk.Providers: failed to get providers: %w", err)
@@ -275,7 +275,7 @@ func (a *App) Shutdown() {
 //	return providers, nil
 //}
 
-// SessionFiles 获取会话文件
+// SessionFiles returns the files associated with a session.
 func (a *AppService) SessionFiles(ctx context.Context, sessionID string) ([]history.File, error) {
 	files, err := a.History.ListLatestSessionFiles(ctx, sessionID)
 	if err != nil {
@@ -292,12 +292,12 @@ func (a *AppService) SessionFiles(ctx context.Context, sessionID string) ([]hist
 	return files, nil
 }
 
-// SessionReadFiles 获取会话读取的文件
+// SessionReadFiles returns the files read during a session.
 func (a *AppService) SessionReadFiles(ctx context.Context, sessionID string) ([]string, error) {
 	return a.FileTracker.ListReadFiles(ctx, sessionID)
 }
 
-// DeleteSession 删除会话
+// DeleteSession deletes a session.
 func (a *AppService) DeleteSession(ctx context.Context, sessionID string) error {
 	return a.Sessions.Delete(ctx, sessionID)
 }
@@ -314,7 +314,7 @@ func (a *AppService) SessionByIDs(ctx context.Context, sessionIDs []string) ([]s
 	return a.Sessions.ListByIDs(ctx, sessionIDs)
 }
 
-// SessionMessages 获取会话消息
+// SessionMessages 鑾峰彇浼氳瘽娑堟伅
 func (a *AppService) SessionMessages(ctx context.Context, sessionID string) ([]DataMessage, error) {
 	messages, err := a.Messages.List(ctx, sessionID)
 	if err != nil {

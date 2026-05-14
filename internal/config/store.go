@@ -481,7 +481,7 @@ func PushPopHiAgentEnv() func() {
 	}
 
 	for _, ev := range found {
-		os.Setenv(ev, os.Getenv("CRUSH_"+ev))
+		os.Setenv(ev, os.Getenv("HIAGENT_"+ev))
 	}
 
 	restore := func() {
@@ -791,7 +791,7 @@ func (c *Config) ValidateHooks() error {
 
 // normalizeHookEvent maps user-provided event names to their canonical
 // form. Matching is case-insensitive and accepts snake_case variants
-// (e.g. "pre_tool_use" → "PreToolUse").
+// (e.g. "pre_tool_use" 鈫?"PreToolUse").
 func normalizeHookEvent(name string) string {
 	switch strings.ToLower(strings.ReplaceAll(name, "_", "")) {
 	case "pretooluse":

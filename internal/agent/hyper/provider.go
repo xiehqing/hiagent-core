@@ -23,7 +23,7 @@ var Enabled = sync.OnceValue(func() bool {
 	b, _ := strconv.ParseBool(
 		cmp.Or(
 			os.Getenv("HYPER"),
-			os.Getenv("HYPERCRUSH"),
+			os.Getenv("HYPERHIAGENT"),
 			os.Getenv("HYPER_ENABLE"),
 			os.Getenv("HYPER_ENABLED"),
 		),

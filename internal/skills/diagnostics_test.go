@@ -13,7 +13,7 @@ func TestApproxTokenCount(t *testing.T) {
 	require.Equal(t, 1, ApproxTokenCount("a"))
 	require.Equal(t, 1, ApproxTokenCount("abcd"))
 	require.Equal(t, 2, ApproxTokenCount("abcde"))
-	// 12 chars → 3 tokens.
+	// 12 chars 鈫?3 tokens.
 	require.Equal(t, 3, ApproxTokenCount("abcdefghijkl"))
 }
 
@@ -57,6 +57,6 @@ func TestDiscoverWithStates_MissingPath(t *testing.T) {
 	t.Parallel()
 
 	// A clearly nonexistent path should not panic; it may log an error.
-	skills, _ := DiscoverWithStates([]string{"/nonexistent/crush/skills/path"})
+	skills, _ := DiscoverWithStates([]string{"/nonexistent/hiagent/skills/path"})
 	require.Empty(t, skills)
 }

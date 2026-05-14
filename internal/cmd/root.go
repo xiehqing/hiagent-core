@@ -33,7 +33,7 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/config"
 	"github.com/xiehqing/hiagent-core/internal/db"
 	"github.com/xiehqing/hiagent-core/internal/event"
-	crushlog "github.com/xiehqing/hiagent-core/internal/log"
+	hiagentlog "github.com/xiehqing/hiagent-core/internal/log"
 	"github.com/xiehqing/hiagent-core/internal/projects"
 	"github.com/xiehqing/hiagent-core/internal/proto"
 	"github.com/xiehqing/hiagent-core/internal/server"
@@ -48,11 +48,11 @@ var clientHost string
 
 func init() {
 	rootCmd.PersistentFlags().StringP("cwd", "c", "", "Current working directory")
-	rootCmd.PersistentFlags().StringP("data-dir", "D", "", "Custom crush data directory")
+	rootCmd.PersistentFlags().StringP("data-dir", "D", "", "Custom hiagent data directory")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Debug")
 	rootCmd.PersistentFlags().StringP("driver", "T", "sqlite", "Custom database driver (sqlite, mysql)")
-	rootCmd.PersistentFlags().StringP("dsn", "u", "", "Custom mysql connection string (user:password@tcp(localhost:3306)/crush)")
-	rootCmd.PersistentFlags().StringVarP(&clientHost, "host", "H", server.DefaultHost(), "Connect to a specific crush server host (for advanced users)")
+	rootCmd.PersistentFlags().StringP("dsn", "u", "", "Custom mysql connection string (user:password@tcp(localhost:3306)/hiagent)")
+	rootCmd.PersistentFlags().StringVarP(&clientHost, "host", "H", server.DefaultHost(), "Connect to a specific hiagent server host (for advanced users)")
 	rootCmd.Flags().BoolP("help", "h", false, "Help")
 	rootCmd.Flags().BoolP("yolo", "y", false, "Automatically accept all permissions (dangerous mode)")
 	rootCmd.Flags().StringP("session", "s", "", "Continue a previous session by ID")
@@ -73,36 +73,36 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "crush",
+	Use:   "hiagent",
 	Short: "A terminal-first AI assistant for software development",
 	Long:  "A glamorous, terminal-first AI assistant for software development and adjacent tasks",
 	Example: `
 # Run in interactive mode
-crush
+hiagent
 
 # Run non-interactively
-crush run "Guess my 5 favorite Pokémon"
+hiagent run "Guess my 5 favorite Pok茅mon"
 
 # Run a non-interactively with pipes and redirection
-cat README.md | crush run "make this more glamorous" > GLAMOROUS_README.md
+cat README.md | hiagent run "make this more glamorous" > GLAMOROUS_README.md
 
 # Run with debug logging in a specific directory
-crush --debug --cwd /path/to/project
+hiagent --debug --cwd /path/to/project
 
 # Run in yolo mode (auto-accept all permissions; use with care)
-crush --yolo
+hiagent --yolo
 
 # Run with custom data directory
-crush --data-dir /path/to/custom/.crush
+hiagent --data-dir /path/to/custom/.hiagent
 
 # Run with custom driver mysql/sqlite
-crush --driver mysql --dsn "user:password@tcp(localhost:3306)/crush"
+hiagent --driver mysql --dsn "user:password@tcp(localhost:3306)/hiagent"
 
 # Continue a previous session
-crush --session {session-id}
+hiagent --session {session-id}
 
 # Continue the most recent session
-crush --continue
+hiagent --continue
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sessionID, _ := cmd.Flags().GetString("session")
@@ -139,24 +139,23 @@ crush --continue
 		if _, err := program.Run(); err != nil {
 			event.Error(err)
 			slog.Error("TUI run error", "error", err)
-			return errors.New("Crush crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/xiehqing/hiagent-core/issues/new?template=bug.yml") //nolint:staticcheck
+			return errors.New("HiAgent crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/xiehqing/hiagent-core/issues/new?template=bug.yml") //nolint:staticcheck
 		}
 		return nil
 	},
 }
 
 var heartbit = lipgloss.NewStyle().Foreground(charmtone.Dolly).SetString(`
-    ▄▄▄▄▄▄▄▄    ▄▄▄▄▄▄▄▄
-  ███████████  ███████████
-████████████████████████████
-████████████████████████████
-██████████▀██████▀██████████
-██████████ ██████ ██████████
-▀▀██████▄████▄▄████▄██████▀▀
-  ████████████████████████
-    ████████████████████
-       ▀▀██████████▀▀
-           ▀▀▀▀▀▀
+    鈻勨杽鈻勨杽鈻勨杽鈻勨杽    鈻勨杽鈻勨杽鈻勨杽鈻勨杽
+  鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻? 鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻?鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻€鈻堚枅鈻堚枅鈻堚枅鈻€鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅 鈻堚枅鈻堚枅鈻堚枅 鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+鈻€鈻€鈻堚枅鈻堚枅鈻堚枅鈻勨枅鈻堚枅鈻堚杽鈻勨枅鈻堚枅鈻堚杽鈻堚枅鈻堚枅鈻堚枅鈻€鈻€
+  鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+    鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅
+       鈻€鈻€鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈻€鈻€
+           鈻€鈻€鈻€鈻€鈻€鈻€
 `)
 
 // copied from cobra:
@@ -210,9 +209,9 @@ func supportsProgressBar() bool {
 }
 
 // useClientServer returns true when the client/server architecture is
-// enabled via the CRUSH_CLIENT_SERVER environment variable.
+// enabled via the HIAGENT_CLIENT_SERVER environment variable.
 func useClientServer() bool {
-	v, _ := strconv.ParseBool(os.Getenv("CRUSH_CLIENT_SERVER"))
+	v, _ := strconv.ParseBool(os.Getenv("HIAGENT_CLIENT_SERVER"))
 	return v
 }
 
@@ -234,7 +233,7 @@ func setupWorkspaceWithProgressBar(cmd *cobra.Command) (workspace.Workspace, fun
 }
 
 // setupWorkspace returns a Workspace and cleanup function. When
-// CRUSH_CLIENT_SERVER=1, it connects to a server process and returns a
+// HIAGENT_CLIENT_SERVER=1, it connects to a server process and returns a
 // ClientWorkspace. Otherwise it creates an in-process app.App and
 // returns an AppWorkspace.
 func setupWorkspace(cmd *cobra.Command) (workspace.Workspace, func(), error) {
@@ -287,7 +286,7 @@ func setupLocalWorkspace(cmd *cobra.Command) (workspace.Workspace, func(), error
 	}
 
 	logFile := filepath.Join(cfg.Options.DataDirectory, "logs", "hi_agent.log")
-	crushlog.Setup(logFile, debug)
+	hiagentlog.Setup(logFile, debug)
 
 	appInstance, err := app.New(ctx, conn, store)
 	if err != nil {
@@ -386,7 +385,7 @@ func connectToServer(cmd *cobra.Command) (*client.Client, *proto.Workspace, func
 
 	if ws.Config != nil {
 		logFile := filepath.Join(ws.Config.Options.DataDirectory, "logs", "hi_agent.log")
-		crushlog.Setup(logFile, debug)
+		hiagentlog.Setup(logFile, debug)
 	}
 
 	cleanup := func() { _ = c.DeleteWorkspace(context.Background(), ws.ID) }
@@ -429,7 +428,7 @@ func ensureServer(cmd *cobra.Command, hostURL *url.URL) error {
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("failed to initialize crush server: %v", err)
+			return fmt.Errorf("failed to initialize hiagent server: %v", err)
 		}
 	}
 
@@ -511,18 +510,18 @@ func startDetachedServer(cmd *cobra.Command) error {
 	c.Stderr = stderr
 
 	if err := c.Start(); err != nil {
-		return fmt.Errorf("failed to start crush server: %v", err)
+		return fmt.Errorf("failed to start hiagent server: %v", err)
 	}
 
 	if err := c.Process.Release(); err != nil {
-		return fmt.Errorf("failed to detach crush server process: %v", err)
+		return fmt.Errorf("failed to detach hiagent server process: %v", err)
 	}
 
 	return nil
 }
 
 func shouldEnableMetrics(cfg *config.Config) bool {
-	if v, _ := strconv.ParseBool(os.Getenv("CRUSH_DISABLE_METRICS")); v {
+	if v, _ := strconv.ParseBool(os.Getenv("HIAGENT_DISABLE_METRICS")); v {
 		return false
 	}
 	if v, _ := strconv.ParseBool(os.Getenv("DO_NOT_TRACK")); v {
@@ -601,7 +600,7 @@ func ResolveCwd(cmd *cobra.Command) (string, error) {
 	return cwd, nil
 }
 
-func createDotCrushDir(dir string) error {
+func createDotHiAgentDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create data directory: %q %w", dir, err)
 	}

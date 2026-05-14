@@ -245,7 +245,7 @@ definitions:
     - TrailerStyleAssistedBy
   csync.Map-string-config_ProviderConfig:
     type: object
-  github_com_charmbracelet_crush_internal_config.Config:
+  github_com_charmbracelet_hiagent_internal_config.Config:
     properties:
       $schema:
         type: string
@@ -259,7 +259,7 @@ definitions:
         description: We currently only support large/small as values here.
         type: object
       options:
-        $ref: '#/definitions/github_com_charmbracelet_crush_internal_config.Options'
+        $ref: '#/definitions/github_com_charmbracelet_hiagent_internal_config.Options'
       permissions:
         $ref: '#/definitions/config.Permissions'
       providers:
@@ -276,7 +276,7 @@ definitions:
       tools:
         $ref: '#/definitions/config.Tools'
     type: object
-  github_com_charmbracelet_crush_internal_config.Options:
+  github_com_charmbracelet_hiagent_internal_config.Options:
     properties:
       attribution:
         $ref: '#/definitions/config.Attribution'
@@ -318,7 +318,7 @@ definitions:
       tui:
         $ref: '#/definitions/config.TUIOptions'
     type: object
-  github_com_charmbracelet_crush_internal_proto.Message:
+  github_com_charmbracelet_hiagent_internal_proto.Message:
     properties:
       created_at:
         type: integer
@@ -672,7 +672,7 @@ definitions:
   proto.Workspace:
     properties:
       config:
-        $ref: '#/definitions/github_com_charmbracelet_crush_internal_config.Config'
+        $ref: '#/definitions/github_com_charmbracelet_hiagent_internal_config.Config'
       data_dir:
         type: string
       debug:
@@ -715,13 +715,13 @@ info:
   contact:
     name: Charm
     url: https://charm.sh
-  description: Crush is a terminal-based AI coding assistant. This API is served over
+  description: HiAgent is a terminal-based AI coding assistant. This API is served over
     a Unix socket (or Windows named pipe) and provides programmatic access to workspaces,
     sessions, agents, LSP, MCP, and more.
   license:
     name: MIT
     url: https://github.com/xiehqing/hiagent-core/blob/main/LICENSE
-  title: Crush API
+  title: HiAgent API
   version: "1.0"
 paths:
   /config:
@@ -1856,7 +1856,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_charmbracelet_crush_internal_proto.Message'
+              $ref: '#/definitions/github_com_charmbracelet_hiagent_internal_proto.Message'
             type: array
         "404":
           description: Not Found
@@ -2312,7 +2312,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_charmbracelet_crush_internal_proto.Message'
+              $ref: '#/definitions/github_com_charmbracelet_hiagent_internal_proto.Message'
             type: array
         "404":
           description: Not Found
@@ -2345,7 +2345,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_charmbracelet_crush_internal_proto.Message'
+              $ref: '#/definitions/github_com_charmbracelet_hiagent_internal_proto.Message'
             type: array
         "404":
           description: Not Found
@@ -2359,3 +2359,4 @@ paths:
       tags:
       - sessions
 swagger: "2.0"
+

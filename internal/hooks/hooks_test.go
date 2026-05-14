@@ -185,13 +185,13 @@ func TestBuildEnv(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, EventPreToolUse, envMap["CRUSH_EVENT"])
-	require.Equal(t, "bash", envMap["CRUSH_TOOL_NAME"])
-	require.Equal(t, "sess-1", envMap["CRUSH_SESSION_ID"])
-	require.Equal(t, "/work", envMap["CRUSH_CWD"])
-	require.Equal(t, "/project", envMap["CRUSH_PROJECT_DIR"])
-	require.Equal(t, "ls", envMap["CRUSH_TOOL_INPUT_COMMAND"])
-	require.Equal(t, "/tmp/f.txt", envMap["CRUSH_TOOL_INPUT_FILE_PATH"])
+	require.Equal(t, EventPreToolUse, envMap["HIAGENT_EVENT"])
+	require.Equal(t, "bash", envMap["HIAGENT_TOOL_NAME"])
+	require.Equal(t, "sess-1", envMap["HIAGENT_SESSION_ID"])
+	require.Equal(t, "/work", envMap["HIAGENT_CWD"])
+	require.Equal(t, "/project", envMap["HIAGENT_PROJECT_DIR"])
+	require.Equal(t, "ls", envMap["HIAGENT_TOOL_INPUT_COMMAND"])
+	require.Equal(t, "/tmp/f.txt", envMap["HIAGENT_TOOL_INPUT_FILE_PATH"])
 }
 
 func splitFirst(s, sep string) []string {
@@ -483,7 +483,7 @@ func TestRunnerParallelExecution(t *testing.T) {
 func TestRunnerEnvVarsPropagated(t *testing.T) {
 	t.Parallel()
 	hookCfg := config.HookConfig{
-		Command: `printf '{"decision":"allow","context":"%s"}' "$CRUSH_TOOL_NAME"`,
+		Command: `printf '{"decision":"allow","context":"%s"}' "$HIAGENT_TOOL_NAME"`,
 	}
 	r := NewRunner([]config.HookConfig{hookCfg}, t.TempDir(), t.TempDir())
 	result, err := r.Run(context.Background(), EventPreToolUse, "sess", "bash", `{}`)
@@ -593,7 +593,7 @@ func TestAggregationUpdatedInput(t *testing.T) {
 	t.Run("null updated_input is a no-op", func(t *testing.T) {
 		t.Parallel()
 		// parseStdout converts null updated_input to "", so aggregate
-		// never sees a patch — the merged input is empty and the
+		// never sees a patch 鈥?the merged input is empty and the
 		// original tool_input is used unchanged.
 		r := parseStdout(`{"decision":"allow","updated_input":null}`)
 		require.Empty(t, r.UpdatedInput)
@@ -647,7 +647,7 @@ func TestParseStdoutClaudeCodeFormat(t *testing.T) {
 		require.Equal(t, DecisionNone, r.Decision)
 	})
 
-	t.Run("crush format still works", func(t *testing.T) {
+	t.Run("hiagent format still works", func(t *testing.T) {
 		t.Parallel()
 		r := parseStdout(`{"decision":"allow","context":"hello"}`)
 		require.Equal(t, DecisionAllow, r.Decision)
