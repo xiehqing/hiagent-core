@@ -60,14 +60,9 @@ func Connect(ctx context.Context, dataDir string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if err := initGoose(); err != nil {
+	if err := InitMigrations(db); err != nil {
 		slog.Error("Failed to initialize goose", "error", err)
-		return nil, fmt.Errorf("failed to initialize goose: %w", err)
-	}
-
-	if err := goose.Up(db, "migrations"); err != nil {
-		slog.Error("Failed to apply migrations", "error", err)
-		return nil, fmt.Errorf("failed to apply migrations: %w", err)
+		return nil, err
 	}
 
 	return db, nil
@@ -80,6 +75,12 @@ func initGoose() error {
 	})
 
 	return gooseInitErr
+}
+
+type migrationConfig struct {
+	baseFS  embed.FS
+	dialect string
+	dir     string
 }
 
 // ConnectWithOption opens the configured database backend.
@@ -119,15 +120,50 @@ func ConnectMySQL(ctx context.Context, dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to mysql database: %w", err)
 	}
 
-	goose.SetBaseFS(mysqlFS)
-	if err := goose.SetDialect("mysql"); err != nil {
+	if err := InitMigrations(db); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to set mysql dialect: %w", err)
-	}
-	if err := goose.Up(db, "migrations_mysql"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to apply mysql migrations: %w", err)
+		return nil, err
 	}
 
 	return db, nil
+}
+
+func InitMigrations(db *sql.DB) error {
+	cfg, err := migrationConfigForDB(db)
+	if err != nil {
+		return err
+	}
+	if cfg.dialect == "sqlite3" {
+		if err := initGoose(); err != nil {
+			return fmt.Errorf("failed to initialize goose: %w", err)
+		}
+	} else {
+		goose.SetBaseFS(cfg.baseFS)
+		if err := goose.SetDialect(cfg.dialect); err != nil {
+			return fmt.Errorf("failed to set %s dialect: %w", cfg.dialect, err)
+		}
+	}
+	if err := goose.Up(db, cfg.dir); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+	return nil
+}
+
+func migrationConfigForDB(db *sql.DB) (migrationConfig, error) {
+	switch detectDialect(db) {
+	case dialectSQLite:
+		return migrationConfig{
+			baseFS:  FS,
+			dialect: "sqlite3",
+			dir:     "migrations",
+		}, nil
+	case dialectMySQL:
+		return migrationConfig{
+			baseFS:  mysqlFS,
+			dialect: "mysql",
+			dir:     "migrations_mysql",
+		}, nil
+	default:
+		return migrationConfig{}, fmt.Errorf("unsupported database dialect for migrations")
+	}
 }

@@ -34,6 +34,10 @@ type AppService struct {
 	FileTracker filetracker.Service
 }
 
+func AutoMigrations(conn *sql.DB) error {
+	return db.InitMigrations(conn)
+}
+
 // NewDBService 鍒涘缓db鏈嶅姟
 func NewDBService(conn *sql.DB) (*AppService, error) {
 	q := db.New(conn)
