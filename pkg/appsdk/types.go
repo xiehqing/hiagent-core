@@ -17,20 +17,14 @@ const (
 )
 
 type AppConfig struct {
-	WorkDir                   string         `json:"workDir"`
-	DataDir                   string         `json:"dataDir"`
-	Database                  DatabaseConfig `json:"database"`
-	SkipPermissionRequests    bool           `json:"skipPermissionRequests"`
-	DisableProviderAutoUpdate bool           `json:"disableProviderAutoUpdate"`
-	AdditionalSystemPrompt    string         `json:"additionalSystemPrompt"`
-	Debug                     bool           `json:"debug"`
-	SelectedProvider          string         `json:"selectedProvider"`
-	SelectedModel             string         `json:"selectedModel"`
-}
-
-type DatabaseConfig struct {
-	Driver DatabaseDriver `json:"driver"`
-	DSN    string         `json:"dsn"`
+	WorkDir                   string `json:"workDir"`
+	DataDir                   string `json:"dataDir"`
+	SkipPermissionRequests    bool   `json:"skipPermissionRequests"`
+	DisableProviderAutoUpdate bool   `json:"disableProviderAutoUpdate"`
+	AdditionalSystemPrompt    string `json:"additionalSystemPrompt"`
+	Debug                     bool   `json:"debug"`
+	SelectedProvider          string `json:"selectedProvider"`
+	SelectedModel             string `json:"selectedModel"`
 }
 
 type Options struct {
@@ -49,18 +43,6 @@ func WithSkipPermissionRequests(skipPermissionRequests bool) Option {
 func WithDebug(debug bool) Option {
 	return func(o *Options) {
 		o.cfg.Debug = debug
-	}
-}
-
-func WithDatabaseDriver(driver DatabaseDriver) Option {
-	return func(o *Options) {
-		o.cfg.Database.Driver = driver
-	}
-}
-
-func WithDatabaseDSN(dsn string) Option {
-	return func(o *Options) {
-		o.cfg.Database.DSN = dsn
 	}
 }
 

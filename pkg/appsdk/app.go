@@ -34,21 +34,6 @@ type AppService struct {
 	FileTracker filetracker.Service
 }
 
-// setDatabaseOptions sets the database options in the config.
-func handleDatabaseConnection(ctx context.Context, dataDir string, dc *DatabaseConfig) (*sql.DB, error) {
-	conn, err := db.ConnectWithOption(ctx, string(dc.Driver), dataDir, dc.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("sdk.New: failed to connect to database: %w", err)
-	}
-	return conn, nil
-}
-
-func applyRuntimeDatabaseOverride(store *config.ConfigStore, dc *DatabaseConfig) {
-	if store == nil || dc == nil {
-		return
-	}
-}
-
 // NewDBService 鍒涘缓db鏈嶅姟
 func NewDBService(conn *sql.DB) (*AppService, error) {
 	q := db.New(conn)
@@ -65,7 +50,10 @@ func NewDBService(conn *sql.DB) (*AppService, error) {
 	}, nil
 }
 
-func NewService(ctx context.Context, opts ...Option) (*AppService, error) {
+func NewService(ctx context.Context, conn *sql.DB, opts ...Option) (*AppService, error) {
+	if conn == nil {
+		return nil, fmt.Errorf("sdk.New: conn is required")
+	}
 	o := &Options{
 		cfg: AppConfig{
 			SkipPermissionRequests:    true,
@@ -79,22 +67,7 @@ func NewService(ctx context.Context, opts ...Option) (*AppService, error) {
 	if o.cfg.WorkDir == "" {
 		return nil, fmt.Errorf("sdk.New: WorkDir is required (use sdk.WithWorkDir)")
 	}
-	if o.cfg.Database.Driver == "" {
-		o.cfg.Database.Driver = DatabaseDriverSqlite
-		if o.cfg.DataDir == "" {
-			return nil, fmt.Errorf("sdk.New: DataDir is required for sqlite (use sdk.WithDataDir)")
-		}
-	}
-	if o.cfg.Database.Driver == DatabaseDriverMysql {
-		if o.cfg.Database.DSN == "" {
-			return nil, fmt.Errorf("sdk.New: DSN is required for mysql (use sdk.WithDatabaseDSN)")
-		}
-	}
 	o.cfg.DataDir = config.DefaultDataDir(o.cfg.WorkDir, o.cfg.DataDir)
-	conn, err := handleDatabaseConnection(ctx, o.cfg.DataDir, &o.cfg.Database)
-	if err != nil {
-		return nil, err
-	}
 	q := db.New(conn)
 	sessions := session.NewService(q, conn)
 	messages := message.NewService(q)
@@ -109,62 +82,7 @@ func NewService(ctx context.Context, opts ...Option) (*AppService, error) {
 	}, nil
 }
 
-func New(ctx context.Context, opts ...Option) (*App, error) {
-	o := &Options{
-		cfg: AppConfig{
-			SkipPermissionRequests:    true,
-			Debug:                     false,
-			DisableProviderAutoUpdate: true,
-		},
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	if o.cfg.WorkDir == "" {
-		return nil, fmt.Errorf("sdk.New: WorkDir is required (use sdk.WithWorkDir)")
-	}
-	if o.cfg.Database.Driver == "" {
-		o.cfg.Database.Driver = DatabaseDriverSqlite
-		if o.cfg.DataDir == "" {
-			return nil, fmt.Errorf("sdk.New: DataDir is required for sqlite (use sdk.WithDataDir)")
-		}
-	}
-	if o.cfg.Database.Driver == DatabaseDriverMysql {
-		if o.cfg.Database.DSN == "" {
-			return nil, fmt.Errorf("sdk.New: DSN is required for mysql (use sdk.WithDatabaseDSN)")
-		}
-	}
-	o.cfg.DataDir = config.DefaultDataDir(o.cfg.WorkDir, o.cfg.DataDir)
-	conn, err := handleDatabaseConnection(ctx, o.cfg.DataDir, &o.cfg.Database)
-	if err != nil {
-		return nil, err
-	}
-	cfg, err := config.Init(o.cfg.WorkDir, o.cfg.DataDir, conn, o.cfg.Debug)
-	if err != nil {
-		return nil, fmt.Errorf("sdk.New: failed to initialize config: %w", err)
-	}
-	cfg.Overrides().SkipPermissionRequests = o.cfg.SkipPermissionRequests
-	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
-	applyRuntimeDatabaseOverride(cfg, &o.cfg.Database)
-	if o.cfg.Database.Driver == DatabaseDriverSqlite {
-		if err = createDotHiAgentDir(cfg.Config().Options.DataDirectory); err != nil {
-			return nil, fmt.Errorf("sdk.New: failed to create data directory: %w", err)
-		}
-	}
-	if o.cfg.SelectedModel != "" && o.cfg.SelectedProvider != "" {
-		err = cfg.SetRuntimePreferredModel(o.cfg.SelectedProvider, o.cfg.SelectedModel)
-		if err != nil {
-			return nil, errors.WithMessage(err, "sdk.New: failed to set runtime preferred model")
-		}
-	}
-	app, err := app.NewWithSystemPrompt(ctx, conn, cfg, o.cfg.AdditionalSystemPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("sdk.New: failed to create app workspace: %w", err)
-	}
-	return &App{AppInstance: app}, nil
-}
-
-func NewWithDB(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
+func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("sdk.New: conn is required")
 	}
@@ -188,12 +106,6 @@ func NewWithDB(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) 
 	}
 	cfg.Overrides().SkipPermissionRequests = o.cfg.SkipPermissionRequests
 	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
-	applyRuntimeDatabaseOverride(cfg, &o.cfg.Database)
-	if o.cfg.Database.Driver == DatabaseDriverSqlite {
-		if err = createDotHiAgentDir(cfg.Config().Options.DataDirectory); err != nil {
-			return nil, fmt.Errorf("sdk.New: failed to create data directory: %w", err)
-		}
-	}
 	if o.cfg.SelectedModel != "" && o.cfg.SelectedProvider != "" {
 		err = cfg.SetRuntimePreferredModel(o.cfg.SelectedProvider, o.cfg.SelectedModel)
 		if err != nil {
