@@ -15,7 +15,7 @@ HiAgent currently uses JSON configuration files with the following priority (hig
 
 ```json
 {
-  "$schema": "https://charm.land/hiagent.json",
+  "$schema": "https://charm.land/crush.json",
   "models": {},
   "providers": {},
   "mcp": {},
