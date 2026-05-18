@@ -33,6 +33,24 @@ type ImportSkillResult struct {
 	TargetPath string      `json:"target_path"`
 }
 
+type SkillImportCheckResult struct {
+	Skill         SkillDetail `json:"skill"`
+	TargetPath    string      `json:"target_path"`
+	Exists        bool        `json:"exists"`
+	Builtin       bool        `json:"builtin"`
+	ExistingPath  string      `json:"existing_path,omitempty"`
+	CanImport     bool        `json:"can_import"`
+	CanOverwrite  bool        `json:"can_overwrite"`
+	ConflictScope string      `json:"conflict_scope,omitempty"`
+}
+
+type skillImportMode string
+
+const (
+	skillImportModeReject    skillImportMode = "reject"
+	skillImportModeOverwrite skillImportMode = "overwrite"
+)
+
 // ImportSkill imports a custom skill into the first default global skills directory.
 func ImportSkill(sourcePath string) (*ImportSkillResult, error) {
 	globalDirs := config.GlobalSkillsDirs()
@@ -42,43 +60,107 @@ func ImportSkill(sourcePath string) (*ImportSkillResult, error) {
 	return ImportSkillTo(sourcePath, globalDirs[0])
 }
 
+// ImportSkillOverwrite imports a custom skill into the first default global
+// skills directory and overwrites an existing custom skill with the same name.
+func ImportSkillOverwrite(sourcePath string) (*ImportSkillResult, error) {
+	globalDirs := config.GlobalSkillsDirs()
+	if len(globalDirs) == 0 {
+		return nil, fmt.Errorf("sdk.ImportSkill: no global skills directories configured")
+	}
+	return ImportSkillToOverwrite(sourcePath, globalDirs[0])
+}
+
 // ImportSkillTo imports a custom skill into the target skills directory.
 func ImportSkillTo(sourcePath, targetRoot string) (*ImportSkillResult, error) {
-	if sourcePath == "" {
-		return nil, fmt.Errorf("sdk.ImportSkill: sourcePath is required")
-	}
-	if targetRoot == "" {
-		return nil, fmt.Errorf("sdk.ImportSkill: targetRoot is required")
-	}
+	return importSkillTo(sourcePath, targetRoot, skillImportModeReject)
+}
 
-	sourceSkillFile, sourceDir, err := resolveSkillSource(sourcePath)
+// ImportSkillToOverwrite imports a custom skill into the target skills
+// directory and overwrites an existing custom skill with the same name.
+func ImportSkillToOverwrite(sourcePath, targetRoot string) (*ImportSkillResult, error) {
+	return importSkillTo(sourcePath, targetRoot, skillImportModeOverwrite)
+}
+
+// CheckImportSkill validates a skill import and checks for duplicate skills
+// across builtin skills and all default global skills directories.
+func CheckImportSkill(sourcePath string) (*SkillImportCheckResult, error) {
+	skill, err := parseSkillImportSource(sourcePath)
 	if err != nil {
 		return nil, err
 	}
 
-	skill, err := iskills.Parse(sourceSkillFile)
+	conflict, err := findSkillImportConflict(skill.Name, "")
 	if err != nil {
-		return nil, fmt.Errorf("sdk.ImportSkill: failed to parse skill: %w", err)
-	}
-	if err := skill.Validate(); err != nil {
-		return nil, fmt.Errorf("sdk.ImportSkill: invalid skill format: %w", err)
-	}
-
-	if err := ensureSkillNotDuplicate(skill.Name); err != nil {
 		return nil, err
 	}
 
-	targetDir := filepath.Join(targetRoot, skill.Name)
-	if _, err := os.Stat(targetDir); err == nil {
-		return nil, fmt.Errorf("sdk.ImportSkill: target skill already exists: %s", skill.Name)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("sdk.ImportSkill: failed to check target skill path: %w", err)
+	result := &SkillImportCheckResult{
+		Skill:     skillDetailFromInternal(skill, false, false),
+		CanImport: conflict == nil,
+	}
+	if conflict == nil {
+		return result, nil
+	}
+
+	result.Exists = true
+	result.Builtin = conflict.Builtin
+	result.ExistingPath = conflict.Skill.Path
+	result.ConflictScope = conflict.Scope
+	result.CanOverwrite = !conflict.Builtin
+	return result, nil
+}
+
+// CheckImportSkillTo validates a skill import against the target skills
+// directory and reports duplicate/overwrite status without copying files.
+func CheckImportSkillTo(sourcePath, targetRoot string) (*SkillImportCheckResult, error) {
+	skill, targetDir, conflict, err := prepareSkillImport(sourcePath, targetRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &SkillImportCheckResult{
+		Skill:      skillDetailFromInternal(skill, false, false),
+		TargetPath: targetDir,
+		CanImport:  conflict == nil,
+	}
+	if conflict == nil {
+		return result, nil
+	}
+
+	result.Exists = true
+	result.Builtin = conflict.Builtin
+	result.ExistingPath = conflict.Skill.Path
+	result.ConflictScope = conflict.Scope
+	result.CanOverwrite = !conflict.Builtin && samePath(conflict.Skill.Path, targetDir)
+	return result, nil
+}
+
+func importSkillTo(sourcePath, targetRoot string, mode skillImportMode) (*ImportSkillResult, error) {
+	skill, targetDir, conflict, err := prepareSkillImport(sourcePath, targetRoot)
+	if err != nil {
+		return nil, err
+	}
+	if conflict != nil {
+		if mode != skillImportModeOverwrite {
+			return nil, duplicateSkillError(conflict)
+		}
+		if conflict.Builtin {
+			return nil, fmt.Errorf("sdk.ImportSkill: cannot overwrite builtin skill: %s", skill.Name)
+		}
+		if !samePath(conflict.Skill.Path, targetDir) {
+			return nil, fmt.Errorf("sdk.ImportSkill: skill %s already exists at %s and cannot be overwritten from target %s", skill.Name, conflict.Skill.Path, targetDir)
+		}
 	}
 
 	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
 		return nil, fmt.Errorf("sdk.ImportSkill: failed to create target root: %w", err)
 	}
-	if err := copyDir(sourceDir, targetDir); err != nil {
+	if mode == skillImportModeOverwrite {
+		if err := os.RemoveAll(targetDir); err != nil {
+			return nil, fmt.Errorf("sdk.ImportSkill: failed to remove existing target skill: %w", err)
+		}
+	}
+	if err := copyDir(skill.Path, targetDir); err != nil {
 		return nil, fmt.Errorf("sdk.ImportSkill: failed to copy skill files: %w", err)
 	}
 
@@ -94,6 +176,57 @@ func ImportSkillTo(sourcePath, targetRoot string) (*ImportSkillResult, error) {
 		Skill:      skillDetailFromInternal(imported, false, false),
 		TargetPath: targetDir,
 	}, nil
+}
+
+type skillImportConflict struct {
+	Skill   *iskills.Skill
+	Builtin bool
+	Scope   string
+}
+
+func prepareSkillImport(sourcePath, targetRoot string) (*iskills.Skill, string, *skillImportConflict, error) {
+	if sourcePath == "" {
+		return nil, "", nil, fmt.Errorf("sdk.ImportSkill: sourcePath is required")
+	}
+	if targetRoot == "" {
+		return nil, "", nil, fmt.Errorf("sdk.ImportSkill: targetRoot is required")
+	}
+
+	skill, err := parseSkillImportSource(sourcePath)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	targetDir := filepath.Join(targetRoot, skill.Name)
+	conflict, err := findSkillImportConflict(skill.Name, targetRoot)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if conflict == nil {
+		if _, err := os.Stat(targetDir); err == nil {
+			return nil, "", nil, fmt.Errorf("sdk.ImportSkill: target skill already exists: %s", skill.Name)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, "", nil, fmt.Errorf("sdk.ImportSkill: failed to check target skill path: %w", err)
+		}
+	}
+
+	return skill, targetDir, conflict, nil
+}
+
+func parseSkillImportSource(sourcePath string) (*iskills.Skill, error) {
+	sourceSkillFile, _, err := resolveSkillSource(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+
+	skill, err := iskills.Parse(sourceSkillFile)
+	if err != nil {
+		return nil, fmt.Errorf("sdk.ImportSkill: failed to parse skill: %w", err)
+	}
+	if err := skill.Validate(); err != nil {
+		return nil, fmt.Errorf("sdk.ImportSkill: invalid skill format: %w", err)
+	}
+	return skill, nil
 }
 
 // ListDefaultActiveSkillsDetails returns only active skills from the default
@@ -240,15 +373,64 @@ func resolveSkillSource(sourcePath string) (skillFile string, skillDir string, e
 	return sourcePath, filepath.Dir(sourcePath), nil
 }
 
-func ensureSkillNotDuplicate(name string) error {
-	existing := append([]*iskills.Skill{}, iskills.DiscoverBuiltin()...)
-	existing = append(existing, iskills.Discover(config.GlobalSkillsDirs())...)
-	for _, skill := range existing {
+func findSkillImportConflict(name, targetRoot string) (*skillImportConflict, error) {
+	for _, skill := range iskills.DiscoverBuiltin() {
 		if skill.Name == name {
-			return fmt.Errorf("sdk.ImportSkill: duplicate skill name: %s", name)
+			return &skillImportConflict{
+				Skill:   skill,
+				Builtin: true,
+				Scope:   "builtin",
+			}, nil
 		}
 	}
-	return nil
+
+	searchRoots := append([]string{}, config.GlobalSkillsDirs()...)
+	if targetRoot != "" && !containsPath(searchRoots, targetRoot) {
+		searchRoots = append(searchRoots, targetRoot)
+	}
+	for _, skill := range iskills.Discover(searchRoots) {
+		if skill.Name == name {
+			scope := "global"
+			if targetRoot != "" && samePath(filepath.Dir(skill.Path), targetRoot) {
+				scope = "target"
+			}
+			return &skillImportConflict{
+				Skill:   skill,
+				Builtin: false,
+				Scope:   scope,
+			}, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func duplicateSkillError(conflict *skillImportConflict) error {
+	if conflict == nil {
+		return nil
+	}
+	if conflict.Builtin {
+		return fmt.Errorf("sdk.ImportSkill: duplicate skill name: %s (builtin)", conflict.Skill.Name)
+	}
+	return fmt.Errorf("sdk.ImportSkill: duplicate skill name: %s (existing at %s)", conflict.Skill.Name, conflict.Skill.Path)
+}
+
+func containsPath(paths []string, target string) bool {
+	for _, path := range paths {
+		if samePath(path, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func samePath(left, right string) bool {
+	if left == "" || right == "" {
+		return left == right
+	}
+	cleanLeft := filepath.Clean(left)
+	cleanRight := filepath.Clean(right)
+	return cleanLeft == cleanRight
 }
 
 func copyDir(src, dst string) error {
