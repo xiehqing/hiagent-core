@@ -16,8 +16,10 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/provider"
 	"github.com/xiehqing/hiagent-core/internal/pubsub"
 	"github.com/xiehqing/hiagent-core/internal/session"
+	"github.com/xiehqing/hiagent-core/internal/skills"
 	"log/slog"
 	"os"
+	"slices"
 	"time"
 )
 
@@ -108,6 +110,9 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sdk.New: failed to initialize config: %w", err)
 	}
+	if err := applyAppConfigOptions(cfg, o.cfg); err != nil {
+		return nil, fmt.Errorf("sdk.New: failed to apply config options: %w", err)
+	}
 	cfg.Overrides().SkipPermissionRequests = o.cfg.SkipPermissionRequests
 	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
 	if o.cfg.SelectedModel != "" && o.cfg.SelectedProvider != "" {
@@ -121,6 +126,81 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 		return nil, fmt.Errorf("sdk.New: failed to create app workspace: %w", err)
 	}
 	return &App{AppInstance: app}, nil
+}
+
+func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
+	if store == nil || store.Config() == nil {
+		return nil
+	}
+
+	if store.Config().Options == nil {
+		store.Config().Options = &config.Options{}
+	}
+
+	if len(cfg.MCPServers) > 0 {
+		store.Config().MCP = make(config.MCPs, len(cfg.MCPServers))
+		for name, server := range cfg.MCPServers {
+			store.Config().MCP[name] = config.MCPConfig{
+				Command:       server.Command,
+				Env:           cloneStringMap(server.Env),
+				Args:          append([]string(nil), server.Args...),
+				Type:          config.MCPType(server.Type),
+				URL:           server.URL,
+				Disabled:      server.Disabled,
+				DisabledTools: append([]string(nil), server.DisabledTools...),
+				Timeout:       server.Timeout,
+				Headers:       cloneStringMap(server.Headers),
+			}
+		}
+	}
+
+	if len(cfg.SkillsPaths) > 0 {
+		mergedPaths := append([]string{}, store.Config().Options.SkillsPaths...)
+		for _, skillPath := range cfg.SkillsPaths {
+			if skillPath == "" || slices.Contains(mergedPaths, skillPath) {
+				continue
+			}
+			mergedPaths = append(mergedPaths, skillPath)
+		}
+		store.Config().Options.SkillsPaths = mergedPaths
+	}
+
+	if len(cfg.DisabledSkills) > 0 {
+		store.Config().Options.DisabledSkills = append([]string(nil), cfg.DisabledSkills...)
+	}
+
+	if len(cfg.Skills) > 0 {
+		discovered := append([]*skills.Skill{}, skills.DiscoverBuiltin()...)
+		if paths := store.Config().Options.SkillsPaths; len(paths) > 0 {
+			discovered = append(discovered, skills.Discover(paths)...)
+		}
+		allSkills := skills.Deduplicate(discovered)
+		selected := make(map[string]bool, len(cfg.Skills))
+		for _, name := range cfg.Skills {
+			selected[name] = true
+		}
+
+		disabled := make([]string, 0, len(allSkills))
+		for _, skill := range allSkills {
+			if !selected[skill.Name] {
+				disabled = append(disabled, skill.Name)
+			}
+		}
+		store.Config().Options.DisabledSkills = disabled
+	}
+
+	return nil
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func (a *App) SubmitMessage(ctx context.Context, prompt string, continueSessionID string, useLast bool) (*fantasy.AgentResult, error) {

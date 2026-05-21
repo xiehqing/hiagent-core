@@ -17,14 +17,18 @@ const (
 )
 
 type AppConfig struct {
-	WorkDir                   string `json:"workDir"`
-	DataDir                   string `json:"dataDir"`
-	SkipPermissionRequests    bool   `json:"skipPermissionRequests"`
-	DisableProviderAutoUpdate bool   `json:"disableProviderAutoUpdate"`
-	AdditionalSystemPrompt    string `json:"additionalSystemPrompt"`
-	Debug                     bool   `json:"debug"`
-	SelectedProvider          string `json:"selectedProvider"`
-	SelectedModel             string `json:"selectedModel"`
+	WorkDir                   string               `json:"workDir"`
+	DataDir                   string               `json:"dataDir"`
+	SkipPermissionRequests    bool                 `json:"skipPermissionRequests"`
+	DisableProviderAutoUpdate bool                 `json:"disableProviderAutoUpdate"`
+	AdditionalSystemPrompt    string               `json:"additionalSystemPrompt"`
+	Debug                     bool                 `json:"debug"`
+	SelectedProvider          string               `json:"selectedProvider"`
+	SelectedModel             string               `json:"selectedModel"`
+	MCPServers                map[string]MCPConfig `json:"mcpServers,omitempty"`
+	SkillsPaths               []string             `json:"skillsPaths,omitempty"`
+	Skills                    []string             `json:"skills,omitempty"`
+	DisabledSkills            []string             `json:"disabledSkills,omitempty"`
 }
 
 type Options struct {
@@ -79,6 +83,47 @@ func WithDisableProviderAutoUpdate(disableProviderAutoUpdate bool) Option {
 func WithAdditionalSystemPrompt(additionalSystemPrompt string) Option {
 	return func(o *Options) {
 		o.cfg.AdditionalSystemPrompt = additionalSystemPrompt
+	}
+}
+
+func WithMCPServers(mcpServers map[string]MCPConfig) Option {
+	return func(o *Options) {
+		if len(mcpServers) == 0 {
+			o.cfg.MCPServers = nil
+			return
+		}
+		copied := make(map[string]MCPConfig, len(mcpServers))
+		for name, cfg := range mcpServers {
+			copied[name] = cfg
+		}
+		o.cfg.MCPServers = copied
+	}
+}
+
+func WithMCPServer(name string, cfg MCPConfig) Option {
+	return func(o *Options) {
+		if o.cfg.MCPServers == nil {
+			o.cfg.MCPServers = make(map[string]MCPConfig)
+		}
+		o.cfg.MCPServers[name] = cfg
+	}
+}
+
+func WithSkillsPaths(skillsPaths []string) Option {
+	return func(o *Options) {
+		o.cfg.SkillsPaths = append([]string(nil), skillsPaths...)
+	}
+}
+
+func WithSkills(skills []string) Option {
+	return func(o *Options) {
+		o.cfg.Skills = append([]string(nil), skills...)
+	}
+}
+
+func WithDisabledSkills(disabledSkills []string) Option {
+	return func(o *Options) {
+		o.cfg.DisabledSkills = append([]string(nil), disabledSkills...)
 	}
 }
 
