@@ -111,9 +111,6 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sdk.New: failed to initialize config: %w", err)
 	}
-	if err := applyAppConfigOptions(cfg, o.cfg); err != nil {
-		return nil, fmt.Errorf("sdk.New: failed to apply config options: %w", err)
-	}
 	cfg.Overrides().SkipPermissionRequests = o.cfg.SkipPermissionRequests
 	cfg.Config().Options.DisableProviderAutoUpdate = o.cfg.DisableProviderAutoUpdate
 	if o.cfg.SelectedModel != "" && o.cfg.SelectedProvider != "" {
@@ -122,11 +119,14 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 			return nil, errors.WithMessage(err, "sdk.New: failed to set runtime preferred model")
 		}
 	}
+	if err := applyAppConfigOptions(cfg, o.cfg); err != nil {
+		return nil, fmt.Errorf("sdk.New: failed to apply config options: %w", err)
+	}
+	logFinalAppConfigBindings(cfg)
 	app, err := app.NewWithSystemPrompt(ctx, conn, cfg, o.cfg.AdditionalSystemPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("sdk.New: failed to create app workspace: %w", err)
 	}
-	slog.Info("app.Config().MCP", "mcpx", app.Config().MCP)
 	return &App{AppInstance: app}, nil
 }
 
@@ -227,6 +227,35 @@ func cloneStringMap(in map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
+}
+
+func logFinalAppConfigBindings(store *config.ConfigStore) {
+	if store == nil || store.Config() == nil {
+		return
+	}
+
+	cfg := store.Config()
+
+	mcpNames := make([]string, 0, len(cfg.MCP))
+	for _, item := range cfg.MCP.Sorted() {
+		mcpNames = append(mcpNames, fmt.Sprintf("%s(%s)", item.Name, item.MCP.Type))
+	}
+
+	skillsPaths := append([]string(nil), cfg.Options.SkillsPaths...)
+	slices.Sort(skillsPaths)
+
+	disabledSkills := append([]string(nil), cfg.Options.DisabledSkills...)
+	slices.Sort(disabledSkills)
+
+	slog.Info(
+		"AppSDK final runtime bindings",
+		"mcp_count", len(mcpNames),
+		"mcps", strings.Join(mcpNames, ", "),
+		"skills_path_count", len(skillsPaths),
+		"skills_paths", strings.Join(skillsPaths, ", "),
+		"disabled_skill_count", len(disabledSkills),
+		"disabled_skills", strings.Join(disabledSkills, ", "),
+	)
 }
 
 func (a *App) SubmitMessage(ctx context.Context, prompt string, continueSessionID string, useLast bool) (*fantasy.AgentResult, error) {
