@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/xiehqing/hiagent-core/internal/agent"
+	mcpclient "github.com/xiehqing/hiagent-core/internal/agent/tools/mcp"
 	"github.com/xiehqing/hiagent-core/internal/app"
 	"github.com/xiehqing/hiagent-core/internal/config"
 	"github.com/xiehqing/hiagent-core/internal/db"
@@ -261,6 +262,12 @@ func logFinalAppConfigBindings(store *config.ConfigStore) {
 func (a *App) SubmitMessage(ctx context.Context, prompt string, continueSessionID string, useLast bool) (*fantasy.AgentResult, error) {
 	if a.AppInstance.AgentCoordinator == nil {
 		return nil, fmt.Errorf("sdk.SubmitMessage: agent coordinator is nil")
+	}
+	if err := mcpclient.WaitForInit(ctx); err != nil {
+		return nil, fmt.Errorf("sdk.SubmitMessage: failed to wait for mcp initialization: %w", err)
+	}
+	if err := a.AppInstance.AgentCoordinator.UpdateModels(ctx); err != nil {
+		return nil, fmt.Errorf("sdk.SubmitMessage: failed to refresh agent models and tools: %w", err)
 	}
 	session, err := a.resolveSession(ctx, continueSessionID, useLast)
 
