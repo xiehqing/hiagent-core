@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"os"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -125,6 +126,7 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sdk.New: failed to create app workspace: %w", err)
 	}
+	slog.Info("app.Config().MCP", "mcpx", app.Config().MCP)
 	return &App{AppInstance: app}, nil
 }
 
@@ -139,6 +141,7 @@ func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
 
 	if len(cfg.MCPServers) > 0 {
 		store.Config().MCP = make(config.MCPs, len(cfg.MCPServers))
+		mcpNames := make([]string, 0, len(cfg.MCPServers))
 		for name, server := range cfg.MCPServers {
 			store.Config().MCP[name] = config.MCPConfig{
 				Command:       server.Command,
@@ -151,22 +154,34 @@ func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
 				Timeout:       server.Timeout,
 				Headers:       cloneStringMap(server.Headers),
 			}
+			mcpNames = append(mcpNames, fmt.Sprintf("%s(%s)", name, server.Type))
 		}
+		slices.Sort(mcpNames)
+		slog.Info("Applied AppSDK MCP server bindings", "count", len(mcpNames), "mcps", strings.Join(mcpNames, ", "))
 	}
 
 	if len(cfg.SkillsPaths) > 0 {
 		mergedPaths := append([]string{}, store.Config().Options.SkillsPaths...)
+		addedPaths := make([]string, 0, len(cfg.SkillsPaths))
 		for _, skillPath := range cfg.SkillsPaths {
 			if skillPath == "" || slices.Contains(mergedPaths, skillPath) {
 				continue
 			}
 			mergedPaths = append(mergedPaths, skillPath)
+			addedPaths = append(addedPaths, skillPath)
 		}
 		store.Config().Options.SkillsPaths = mergedPaths
+		if len(addedPaths) > 0 {
+			slices.Sort(addedPaths)
+			slog.Info("Applied AppSDK skill path bindings", "count", len(addedPaths), "paths", strings.Join(addedPaths, ", "))
+		}
 	}
 
 	if len(cfg.DisabledSkills) > 0 {
 		store.Config().Options.DisabledSkills = append([]string(nil), cfg.DisabledSkills...)
+		disabled := append([]string(nil), cfg.DisabledSkills...)
+		slices.Sort(disabled)
+		slog.Info("Applied AppSDK disabled skill bindings", "count", len(disabled), "skills", strings.Join(disabled, ", "))
 	}
 
 	if len(cfg.Skills) > 0 {
@@ -187,6 +202,17 @@ func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
 			}
 		}
 		store.Config().Options.DisabledSkills = disabled
+		selectedNames := append([]string(nil), cfg.Skills...)
+		slices.Sort(selectedNames)
+		disabledNames := append([]string(nil), disabled...)
+		slices.Sort(disabledNames)
+		slog.Info(
+			"Applied AppSDK selected skill bindings",
+			"selected_count", len(selectedNames),
+			"selected_skills", strings.Join(selectedNames, ", "),
+			"disabled_count", len(disabledNames),
+			"disabled_skills", strings.Join(disabledNames, ", "),
+		)
 	}
 
 	return nil
