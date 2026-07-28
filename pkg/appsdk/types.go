@@ -5,6 +5,7 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/history"
 	"github.com/xiehqing/hiagent-core/internal/message"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 )
@@ -88,15 +89,10 @@ func WithAdditionalSystemPrompt(additionalSystemPrompt string) Option {
 
 func WithMCPServers(mcpServers map[string]MCPConfig) Option {
 	return func(o *Options) {
-		if len(mcpServers) == 0 {
-			o.cfg.MCPServers = nil
-			return
+		o.cfg.MCPServers = maps.Clone(mcpServers)
+		if o.cfg.MCPServers == nil {
+			o.cfg.MCPServers = map[string]MCPConfig{}
 		}
-		copied := make(map[string]MCPConfig, len(mcpServers))
-		for name, cfg := range mcpServers {
-			copied[name] = cfg
-		}
-		o.cfg.MCPServers = copied
 	}
 }
 

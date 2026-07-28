@@ -140,7 +140,7 @@ func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
 		store.Config().Options = &config.Options{}
 	}
 
-	if len(cfg.MCPServers) > 0 {
+	if cfg.MCPServers != nil {
 		store.Config().MCP = make(config.MCPs, len(cfg.MCPServers))
 		mcpNames := make([]string, 0, len(cfg.MCPServers))
 		for name, server := range cfg.MCPServers {
