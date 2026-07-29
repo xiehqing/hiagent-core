@@ -1,9 +1,11 @@
 package prompt
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"github.com/xiehqing/hiagent-core/internal/config"
 	"github.com/xiehqing/hiagent-core/internal/home"
@@ -43,6 +46,17 @@ type PromptDat struct {
 type ContextFile struct {
 	Path    string
 	Content string
+}
+
+const (
+	maxContextFiles      = 128
+	maxContextFileBytes  = 1 << 20
+	maxContextTotalBytes = 4 << 20
+)
+
+type contextLoadBudget struct {
+	files int
+	bytes int64
 }
 
 type Option func(*Prompt)
@@ -102,41 +116,97 @@ func (p *Prompt) BuildWithSystemPrompt(ctx context.Context, provider, model stri
 	return sb.String(), nil
 }
 
-func processFile(filePath string) *ContextFile {
-	content, err := os.ReadFile(filePath)
+func processFile(filePath string, budget *contextLoadBudget) *ContextFile {
+	if budget.files >= maxContextFiles || budget.bytes >= maxContextTotalBytes {
+		return nil
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	if info.Size() > maxContextFileBytes {
+		slog.Warn("Skipping oversized context file", "path", filePath, "bytes", info.Size(), "limit", maxContextFileBytes)
+		return nil
+	}
+
+	file, err := os.Open(filePath)
 	if err != nil {
 		return nil
 	}
+	defer file.Close()
+
+	content, err := io.ReadAll(io.LimitReader(file, maxContextFileBytes+1))
+	if err != nil {
+		return nil
+	}
+	if len(content) > maxContextFileBytes {
+		slog.Warn("Skipping oversized context file", "path", filePath, "bytes", len(content), "limit", maxContextFileBytes)
+		return nil
+	}
+	if !utf8.Valid(content) || bytes.IndexByte(content, 0) >= 0 {
+		slog.Warn("Skipping non-text context file", "path", filePath)
+		return nil
+	}
+	if budget.bytes+int64(len(content)) > maxContextTotalBytes {
+		slog.Warn("Skipping context file because total context limit was reached", "path", filePath, "bytes", len(content), "limit", maxContextTotalBytes)
+		return nil
+	}
+
+	budget.files++
+	budget.bytes += int64(len(content))
 	return &ContextFile{
 		Path:    filePath,
 		Content: string(content),
 	}
 }
 
-func processContextPath(p string, store *config.ConfigStore) []ContextFile {
+func processContextPath(p, workingDir string, budget *contextLoadBudget) []ContextFile {
 	var contexts []ContextFile
+	if strings.TrimSpace(p) == "" {
+		return contexts
+	}
+
 	fullPath := p
 	if !filepath.IsAbs(p) {
-		fullPath = filepath.Join(store.WorkingDir(), p)
+		fullPath = filepath.Join(workingDir, p)
 	}
+	fullPath = filepath.Clean(fullPath)
+
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		return contexts
 	}
 	if info.IsDir() {
+		workingDir, err := filepath.Abs(workingDir)
+		if err == nil {
+			contextDir, absErr := filepath.Abs(fullPath)
+			sameDirectory := filepath.Clean(contextDir) == filepath.Clean(workingDir)
+			if runtime.GOOS == "windows" {
+				sameDirectory = strings.EqualFold(filepath.Clean(contextDir), filepath.Clean(workingDir))
+			}
+			if absErr == nil && sameDirectory {
+				slog.Warn("Skipping working directory as a context path", "path", fullPath)
+				return contexts
+			}
+		}
+
 		filepath.WalkDir(fullPath, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
-				return err
+				return nil
 			}
-			if !d.IsDir() {
-				if result := processFile(path); result != nil {
+			if budget.files >= maxContextFiles || budget.bytes >= maxContextTotalBytes {
+				return filepath.SkipAll
+			}
+			if d.Type().IsRegular() {
+				if result := processFile(path, budget); result != nil {
 					contexts = append(contexts, *result)
 				}
 			}
 			return nil
 		})
-	} else {
-		result := processFile(fullPath)
+	} else if info.Mode().IsRegular() {
+		result := processFile(fullPath, budget)
 		if result != nil {
 			contexts = append(contexts, *result)
 		}
@@ -162,6 +232,7 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 	platform := cmp.Or(p.platform, runtime.GOOS)
 
 	files := map[string][]ContextFile{}
+	budget := &contextLoadBudget{}
 
 	cfg := store.Config()
 	for _, pth := range cfg.Options.ContextPaths {
@@ -170,7 +241,7 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 		if _, ok := files[pathKey]; ok {
 			continue
 		}
-		content := processContextPath(expanded, store)
+		content := processContextPath(expanded, store.WorkingDir(), budget)
 		files[pathKey] = content
 	}
 
