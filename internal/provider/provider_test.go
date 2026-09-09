@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"charm.land/catwalk/pkg/catwalk"
+
 	"github.com/stretchr/testify/require"
 	"github.com/xiehqing/hiagent-core/internal/db"
 	_ "modernc.org/sqlite"
@@ -49,6 +51,7 @@ CREATE TABLE big_models (
     reasoning_levels TEXT,
     default_reasoning_effort TEXT,
     supports_images INTEGER NOT NULL DEFAULT 0,
+    options TEXT,
     disabled INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -88,9 +91,17 @@ CREATE TABLE big_models (
 		ReasoningLevels:        []string{"low", "high"},
 		DefaultReasoningEffort: "high",
 		SupportsImages:         true,
+		Options: catwalk.ModelOptions{
+			ProviderOptions: map[string]any{
+				"extra_body": map[string]any{
+					"chat_template_kwargs": map[string]any{"enable_thinking": true},
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "gpt-large", model.ID)
+	require.Equal(t, true, model.Options.ProviderOptions["extra_body"].(map[string]any)["chat_template_kwargs"].(map[string]any)["enable_thinking"])
 
 	_, err = svc.CreateModel(ctx, BigModel{
 		ProviderID:       "openai-local",
@@ -135,10 +146,12 @@ CREATE TABLE big_models (
 		ReasoningLevels:        []string{"medium"},
 		DefaultReasoningEffort: "medium",
 		SupportsImages:         true,
+		Options:                catwalk.ModelOptions{TopP: ptr(0.9)},
 		SortOrder:              3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "GPT Small v2", updatedModel.Name)
+	require.Equal(t, 0.9, *updatedModel.Options.TopP)
 
 	models, err := svc.ListModels(ctx, "openai-local")
 	require.NoError(t, err)
@@ -158,4 +171,8 @@ CREATE TABLE big_models (
 	all, err = svc.List(ctx)
 	require.NoError(t, err)
 	require.Empty(t, all)
+}
+
+func ptr[T any](value T) *T {
+	return &value
 }

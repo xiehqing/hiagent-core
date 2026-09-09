@@ -80,6 +80,7 @@ type BigModel struct {
 	ReasoningLevels        sql.NullString `json:"reasoning_levels"`
 	DefaultReasoningEffort sql.NullString `json:"default_reasoning_effort"`
 	SupportsImages         bool           `json:"supports_images"`
+	Options                sql.NullString `json:"options"`
 	Disabled               bool           `json:"disabled"`
 	SortOrder              int64          `json:"sort_order"`
 	CreatedAt              int64          `json:"created_at"`

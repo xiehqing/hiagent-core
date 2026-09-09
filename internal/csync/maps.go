@@ -60,6 +60,20 @@ func (m *Map[K, V]) Del(key K) {
 	delete(m.inner, key)
 }
 
+// CompareAndDelete deletes key only when its current value has the same
+// identity as expected. It is intended for pointer values and prevents stale
+// deferred cleanup from deleting a newer replacement.
+func (m *Map[K, V]) CompareAndDelete(key K, expected any) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, ok := m.inner[key]
+	if !ok || any(current) != expected {
+		return false
+	}
+	delete(m.inner, key)
+	return true
+}
+
 // Get gets the value for the specified key from the map.
 func (m *Map[K, V]) Get(key K) (V, bool) {
 	m.mu.RLock()

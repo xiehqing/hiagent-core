@@ -150,6 +150,7 @@ func (c *ProviderConfig) ToProvider() catwalk.Provider {
 			ReasoningLevels:        model.ReasoningLevels,
 			DefaultReasoningEffort: model.DefaultReasoningEffort,
 			SupportsImages:         model.SupportsImages,
+			Options:                model.Options,
 		}
 	}
 

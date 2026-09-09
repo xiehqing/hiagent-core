@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	"charm.land/catwalk/pkg/catwalk"
+
 	"github.com/xiehqing/hiagent-core/internal/db"
 	"github.com/xiehqing/hiagent-core/internal/pubsub"
 )
@@ -39,6 +41,7 @@ type BigModel struct {
 	ReasoningLevels        []string
 	DefaultReasoningEffort string
 	SupportsImages         bool
+	Options                catwalk.ModelOptions
 	Disabled               bool
 	SortOrder              int64
 	CreatedAt              int64
@@ -179,6 +182,7 @@ func (s *service) CreateModel(ctx context.Context, model BigModel) (BigModel, er
 		ReasoningLevels:        marshalReasoningLevels(model.ReasoningLevels),
 		DefaultReasoningEffort: toNullString(model.DefaultReasoningEffort),
 		SupportsImages:         model.SupportsImages,
+		Options:                marshalModelOptions(model.Options),
 		Disabled:               model.Disabled,
 		SortOrder:              model.SortOrder,
 	})
@@ -238,6 +242,7 @@ func (s *service) SaveModel(ctx context.Context, model BigModel) (BigModel, erro
 		ReasoningLevels:        marshalReasoningLevels(model.ReasoningLevels),
 		DefaultReasoningEffort: toNullString(model.DefaultReasoningEffort),
 		SupportsImages:         model.SupportsImages,
+		Options:                marshalModelOptions(model.Options),
 		Disabled:               model.Disabled,
 		SortOrder:              model.SortOrder,
 	})
@@ -286,6 +291,7 @@ func fromDBModel(item db.BigModel) BigModel {
 		ReasoningLevels:        unmarshalReasoningLevels(item.ReasoningLevels.String),
 		DefaultReasoningEffort: item.DefaultReasoningEffort.String,
 		SupportsImages:         item.SupportsImages,
+		Options:                unmarshalModelOptions(item.Options.String),
 		Disabled:               item.Disabled,
 		SortOrder:              item.SortOrder,
 		CreatedAt:              item.CreatedAt,
@@ -295,6 +301,25 @@ func fromDBModel(item db.BigModel) BigModel {
 
 func toNullString(v string) sql.NullString {
 	return sql.NullString{String: v, Valid: v != ""}
+}
+
+func marshalModelOptions(options catwalk.ModelOptions) sql.NullString {
+	data, err := json.Marshal(options)
+	if err != nil || string(data) == "{}" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(data), Valid: true}
+}
+
+func unmarshalModelOptions(value string) catwalk.ModelOptions {
+	if value == "" {
+		return catwalk.ModelOptions{}
+	}
+	var options catwalk.ModelOptions
+	if err := json.Unmarshal([]byte(value), &options); err != nil {
+		return catwalk.ModelOptions{}
+	}
+	return options
 }
 
 func marshalHeaders(headers map[string]string) sql.NullString {

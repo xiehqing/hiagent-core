@@ -12,12 +12,14 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -105,6 +107,10 @@ type Model struct {
 	ModelCfg   config.SelectedModel
 }
 
+type activeCancel struct {
+	cancel context.CancelFunc
+}
+
 type sessionAgent struct {
 	largeModel         *csync.Value[Model]
 	smallModel         *csync.Value[Model]
@@ -120,7 +126,9 @@ type sessionAgent struct {
 	notify               pubsub.Publisher[notify.Notification]
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
-	activeRequests *csync.Map[string, context.CancelFunc]
+	activeRequests *csync.Map[string, *activeCancel]
+	dispatchMu     *csync.Map[string, *sync.Mutex]
+	dispatchCreate sync.Mutex
 }
 
 type SessionAgentOptions struct {
@@ -153,8 +161,43 @@ func NewSessionAgent(
 		isYolo:               opts.IsYolo,
 		notify:               opts.Notify,
 		messageQueue:         csync.NewMap[string, []SessionAgentCall](),
-		activeRequests:       csync.NewMap[string, context.CancelFunc](),
+		activeRequests:       csync.NewMap[string, *activeCancel](),
+		dispatchMu:           csync.NewMap[string, *sync.Mutex](),
 	}
+}
+
+func (a *sessionAgent) sessionMu(sessionID string) *sync.Mutex {
+	if mu, ok := a.dispatchMu.Get(sessionID); ok {
+		return mu
+	}
+	a.dispatchCreate.Lock()
+	defer a.dispatchCreate.Unlock()
+	if mu, ok := a.dispatchMu.Get(sessionID); ok {
+		return mu
+	}
+	mu := &sync.Mutex{}
+	a.dispatchMu.Set(sessionID, mu)
+	return mu
+}
+
+// beginRun atomically chooses between becoming the active run and joining the
+// queue. The returned context is canceled through activeCancel.
+func (a *sessionAgent) beginRun(ctx context.Context, call SessionAgentCall) (context.Context, *activeCancel, bool) {
+	mu := a.sessionMu(call.SessionID)
+	mu.Lock()
+	defer mu.Unlock()
+
+	if a.IsSessionBusy(call.SessionID) {
+		existing, _ := a.messageQueue.Get(call.SessionID)
+		a.messageQueue.Set(call.SessionID, append(slices.Clone(existing), call))
+		return nil, nil, false
+	}
+
+	runCtx := context.WithValue(ctx, tools.SessionIDContextKey, call.SessionID)
+	genCtx, cancel := context.WithCancel(runCtx)
+	active := &activeCancel{cancel: cancel}
+	a.activeRequests.Set(call.SessionID, active)
+	return genCtx, active, true
 }
 
 func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy.AgentResult, error) {
@@ -165,16 +208,12 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		return nil, ErrSessionMissing
 	}
 
-	// Queue the message if busy
-	if a.IsSessionBusy(call.SessionID) {
-		existing, ok := a.messageQueue.Get(call.SessionID)
-		if !ok {
-			existing = []SessionAgentCall{}
-		}
-		existing = append(existing, call)
-		a.messageQueue.Set(call.SessionID, existing)
+	genCtx, active, started := a.beginRun(ctx, call)
+	if !started {
 		return nil, nil
 	}
+	defer active.cancel()
+	defer a.activeRequests.CompareAndDelete(call.SessionID, active)
 
 	// Copy mutable fields under lock to avoid races with SetTools/SetModels.
 	agentTools := a.tools.Copy()
@@ -236,15 +275,6 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		return nil, err
 	}
 
-	// Add the session to the context.
-	ctx = context.WithValue(ctx, tools.SessionIDContextKey, call.SessionID)
-
-	genCtx, cancel := context.WithCancel(ctx)
-	a.activeRequests.Set(call.SessionID, cancel)
-
-	defer cancel()
-	defer a.activeRequests.Del(call.SessionID)
-
 	history, files := a.preparePrompt(msgs, call.Attachments...)
 
 	startTime := time.Now()
@@ -252,6 +282,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 
 	var currentAssistant *message.Message
 	var shouldSummarize bool
+	sanitizedToolCalls := make(map[string]bool)
 	// Don't send MaxOutputTokens if 0 鈥?some providers (e.g. LM Studio) reject it
 	var maxOutputTokens *int64
 	if call.MaxOutputTokens > 0 {
@@ -277,8 +308,10 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			// Use latest tools (updated by SetTools when MCP tools change).
 			prepared.Tools = a.tools.Copy()
 
-			queuedCalls, _ := a.messageQueue.Get(call.SessionID)
-			a.messageQueue.Del(call.SessionID)
+			mu := a.sessionMu(call.SessionID)
+			mu.Lock()
+			queuedCalls, _ := a.messageQueue.Take(call.SessionID)
+			mu.Unlock()
 			for _, queued := range queuedCalls {
 				userMessage, createErr := a.createUserMessage(callContext, queued)
 				if createErr != nil {
@@ -380,10 +413,14 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			slog.Warn("Provider request failed, retrying", providerRetryLogFields(err, delay)...)
 		},
 		OnToolCall: func(tc fantasy.ToolCallContent) error {
+			input, wasSanitized := sanitizeToolInput(tc.ToolName, tc.ToolCallID, tc.Input)
+			if wasSanitized {
+				sanitizedToolCalls[tc.ToolCallID] = true
+			}
 			toolCall := message.ToolCall{
 				ID:               tc.ToolCallID,
 				Name:             tc.ToolName,
-				Input:            tc.Input,
+				Input:            input,
 				ProviderExecuted: false,
 				Finished:         true,
 			}
@@ -394,6 +431,10 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		},
 		OnToolResult: func(result fantasy.ToolResultContent) error {
 			toolResult := a.convertToToolResult(result)
+			if sanitizedToolCalls[result.ToolCallID] {
+				toolResult.Content = "Tool call failed: arguments were not valid JSON. Please check the tool call format and try again."
+				toolResult.IsError = true
+			}
 			// Use parent ctx instead of genCtx to ensure the message is created
 			// even if the request is canceled mid-stream
 			_, createMsgErr := a.messages.Create(ctx, currentAssistant.SessionID, message.CreateMessageParams{
@@ -591,40 +632,51 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	}
 
 	if shouldSummarize {
-		a.activeRequests.Del(call.SessionID)
+		a.activeRequests.CompareAndDelete(call.SessionID, active)
 		if summarizeErr := a.Summarize(genCtx, call.SessionID, call.ProviderOptions); summarizeErr != nil {
 			return nil, summarizeErr
 		}
 		// If the agent wasn't done...
 		if len(currentAssistant.ToolCalls()) > 0 {
-			existing, ok := a.messageQueue.Get(call.SessionID)
-			if !ok {
-				existing = []SessionAgentCall{}
-			}
 			call.Prompt = fmt.Sprintf("The previous session was interrupted because it got too long, the initial user request was: `%s`", call.Prompt)
-			existing = append(existing, call)
-			a.messageQueue.Set(call.SessionID, existing)
+			mu := a.sessionMu(call.SessionID)
+			mu.Lock()
+			existing, _ := a.messageQueue.Get(call.SessionID)
+			a.messageQueue.Set(call.SessionID, append(slices.Clone(existing), call))
+			mu.Unlock()
 		}
 	}
 
 	// Release active request before processing queued messages.
-	a.activeRequests.Del(call.SessionID)
-	cancel()
-
+	mu := a.sessionMu(call.SessionID)
+	mu.Lock()
+	a.activeRequests.CompareAndDelete(call.SessionID, active)
+	active.cancel()
 	queuedMessages, ok := a.messageQueue.Get(call.SessionID)
 	if !ok || len(queuedMessages) == 0 {
+		mu.Unlock()
 		return result, err
 	}
 	// There are queued messages restart the loop.
 	firstQueuedMessage := queuedMessages[0]
-	a.messageQueue.Set(call.SessionID, queuedMessages[1:])
+	a.messageQueue.Set(call.SessionID, slices.Clone(queuedMessages[1:]))
+	mu.Unlock()
 	return a.Run(ctx, firstQueuedMessage)
 }
 
 func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fantasy.ProviderOptions) error {
+	mu := a.sessionMu(sessionID)
+	mu.Lock()
 	if a.IsSessionBusy(sessionID) {
+		mu.Unlock()
 		return ErrSessionBusy
 	}
+	genCtx, cancel := context.WithCancel(ctx)
+	active := &activeCancel{cancel: cancel}
+	a.activeRequests.Set(sessionID, active)
+	mu.Unlock()
+	defer a.activeRequests.CompareAndDelete(sessionID, active)
+	defer active.cancel()
 
 	// Copy mutable fields under lock to avoid races with SetModels.
 	largeModel := a.largeModel.Get()
@@ -644,11 +696,6 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 	}
 
 	aiMsgs, _ := a.preparePrompt(msgs)
-
-	genCtx, cancel := context.WithCancel(ctx)
-	a.activeRequests.Set(sessionID, cancel)
-	defer a.activeRequests.Del(sessionID)
-	defer cancel()
 
 	agent := fantasy.NewAgent(largeModel.Model,
 		fantasy.WithSystemPrompt(string(summaryPrompt)),
@@ -1079,19 +1126,23 @@ func (a *sessionAgent) updateSessionUsage(model Model, session *session.Session,
 }
 
 func (a *sessionAgent) Cancel(sessionID string) {
+	mu := a.sessionMu(sessionID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Cancel regular requests. Don't use Take() here - we need the entry to
 	// remain in activeRequests so IsBusy() returns true until the goroutine
 	// fully completes (including error handling that may access the DB).
 	// The defer in processRequest will clean up the entry.
-	if cancel, ok := a.activeRequests.Get(sessionID); ok && cancel != nil {
+	if active, ok := a.activeRequests.Get(sessionID); ok && active != nil {
 		slog.Debug("Request cancellation initiated", "session_id", sessionID)
-		cancel()
+		active.cancel()
 	}
 
 	// Also check for summarize requests.
-	if cancel, ok := a.activeRequests.Get(sessionID + "-summarize"); ok && cancel != nil {
+	if active, ok := a.activeRequests.Get(sessionID + "-summarize"); ok && active != nil {
 		slog.Debug("Summarize cancellation initiated", "session_id", sessionID)
-		cancel()
+		active.cancel()
 	}
 
 	if a.QueuedPrompts(sessionID) > 0 {
@@ -1101,6 +1152,9 @@ func (a *sessionAgent) Cancel(sessionID string) {
 }
 
 func (a *sessionAgent) ClearQueue(sessionID string) {
+	mu := a.sessionMu(sessionID)
+	mu.Lock()
+	defer mu.Unlock()
 	if a.QueuedPrompts(sessionID) > 0 {
 		slog.Debug("Clearing queued prompts", "session_id", sessionID)
 		a.messageQueue.Del(sessionID)
@@ -1128,8 +1182,8 @@ func (a *sessionAgent) CancelAll() {
 
 func (a *sessionAgent) IsBusy() bool {
 	var busy bool
-	for cancelFunc := range a.activeRequests.Seq() {
-		if cancelFunc != nil {
+	for active := range a.activeRequests.Seq() {
+		if active != nil {
 			busy = true
 			break
 		}
@@ -1340,4 +1394,18 @@ func providerRetryLogFields(err *fantasy.ProviderError, delay time.Duration) []a
 		fields = append(fields, "message", err.Message)
 	}
 	return fields
+}
+
+// sanitizeToolInput prevents malformed provider output from poisoning the
+// persisted conversation and every subsequent provider request.
+func sanitizeToolInput(toolName, toolCallID, input string) (string, bool) {
+	if json.Valid([]byte(input)) {
+		return input, false
+	}
+	slog.Warn("Malformed tool call JSON from provider, replacing with empty object",
+		"tool", toolName,
+		"id", toolCallID,
+		"input_len", len(input),
+	)
+	return "{}", true
 }

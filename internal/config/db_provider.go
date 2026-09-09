@@ -60,7 +60,8 @@ const modelQuery = `
 		can_reason,
 		COALESCE(reasoning_levels, '[]'),
 		COALESCE(default_reasoning_effort, ''),
-		supports_images
+		supports_images,
+		COALESCE(options, '{}')
 		FROM big_models
 	WHERE disabled = 0
 	ORDER BY provider_id ASC, sort_order ASC, id ASC
@@ -147,6 +148,7 @@ func loadDBProviders(ctx context.Context, db *sql.DB) ([]catwalk.Provider, error
 			reasoningLevelsJSON    string
 			defaultReasoningEffort string
 			supportsImages         bool
+			optionsJSON            string
 		)
 		if err := rows.Scan(
 			&providerID,
@@ -162,6 +164,7 @@ func loadDBProviders(ctx context.Context, db *sql.DB) ([]catwalk.Provider, error
 			&reasoningLevelsJSON,
 			&defaultReasoningEffort,
 			&supportsImages,
+			&optionsJSON,
 		); err != nil {
 			return nil, err
 		}
@@ -181,6 +184,12 @@ func loadDBProviders(ctx context.Context, db *sql.DB) ([]catwalk.Provider, error
 		if name == "" {
 			name = modelID
 		}
+		modelOptions := catwalk.ModelOptions{}
+		if optionsJSON != "" {
+			if err := json.Unmarshal([]byte(optionsJSON), &modelOptions); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal model %s options: %w", modelID, err)
+			}
+		}
 
 		providers[idx].Models = append(providers[idx].Models, catwalk.Model{
 			ID:                     modelID,
@@ -195,6 +204,7 @@ func loadDBProviders(ctx context.Context, db *sql.DB) ([]catwalk.Provider, error
 			ReasoningLevels:        reasoningLevels,
 			DefaultReasoningEffort: defaultReasoningEffort,
 			SupportsImages:         supportsImages,
+			Options:                modelOptions,
 		})
 	}
 	if err := rows.Err(); err != nil {

@@ -154,6 +154,25 @@ func TestMap_Del(t *testing.T) {
 	require.Equal(t, 1, m.Len())
 }
 
+func TestMapCompareAndDelete(t *testing.T) {
+	t.Parallel()
+
+	type entry struct{ value int }
+	m := NewMap[string, *entry]()
+	first := &entry{value: 1}
+	second := &entry{value: 2}
+
+	m.Set("key", first)
+	require.False(t, m.CompareAndDelete("key", second))
+	got, ok := m.Get("key")
+	require.True(t, ok)
+	require.Same(t, first, got)
+
+	require.True(t, m.CompareAndDelete("key", first))
+	_, ok = m.Get("key")
+	require.False(t, ok)
+}
+
 func TestMap_Len(t *testing.T) {
 	t.Parallel()
 

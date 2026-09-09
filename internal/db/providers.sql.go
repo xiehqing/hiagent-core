@@ -228,14 +228,15 @@ INSERT INTO big_models (
     reasoning_levels,
     default_reasoning_effort,
     supports_images,
+    options,
     disabled,
     sort_order,
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
 )
-RETURNING provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, disabled, sort_order, created_at, updated_at
+RETURNING provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, options, disabled, sort_order, created_at, updated_at
 `
 
 type CreateBigModelParams struct {
@@ -252,6 +253,7 @@ type CreateBigModelParams struct {
 	ReasoningLevels        sql.NullString `json:"reasoning_levels"`
 	DefaultReasoningEffort sql.NullString `json:"default_reasoning_effort"`
 	SupportsImages         bool           `json:"supports_images"`
+	Options                sql.NullString `json:"options"`
 	Disabled               bool           `json:"disabled"`
 	SortOrder              int64          `json:"sort_order"`
 }
@@ -272,6 +274,7 @@ func (q *Queries) CreateBigModel(ctx context.Context, arg CreateBigModelParams) 
 			arg.ReasoningLevels,
 			arg.DefaultReasoningEffort,
 			arg.SupportsImages,
+			arg.Options,
 			arg.Disabled,
 			arg.SortOrder,
 		)
@@ -295,6 +298,7 @@ func (q *Queries) CreateBigModel(ctx context.Context, arg CreateBigModelParams) 
 		arg.ReasoningLevels,
 		arg.DefaultReasoningEffort,
 		arg.SupportsImages,
+		arg.Options,
 		arg.Disabled,
 		arg.SortOrder,
 	)
@@ -313,6 +317,7 @@ func (q *Queries) CreateBigModel(ctx context.Context, arg CreateBigModelParams) 
 		&i.ReasoningLevels,
 		&i.DefaultReasoningEffort,
 		&i.SupportsImages,
+		&i.Options,
 		&i.Disabled,
 		&i.SortOrder,
 		&i.CreatedAt,
@@ -337,7 +342,7 @@ func (q *Queries) DeleteBigModel(ctx context.Context, arg DeleteBigModelParams) 
 }
 
 const getBigModel = `-- name: GetBigModel :one
-SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, disabled, sort_order, created_at, updated_at
+SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, options, disabled, sort_order, created_at, updated_at
 FROM big_models
 WHERE provider_id = ? AND id = ?
 LIMIT 1
@@ -365,6 +370,7 @@ func (q *Queries) GetBigModel(ctx context.Context, arg GetBigModelParams) (BigMo
 		&i.ReasoningLevels,
 		&i.DefaultReasoningEffort,
 		&i.SupportsImages,
+		&i.Options,
 		&i.Disabled,
 		&i.SortOrder,
 		&i.CreatedAt,
@@ -374,7 +380,7 @@ func (q *Queries) GetBigModel(ctx context.Context, arg GetBigModelParams) (BigMo
 }
 
 const listBigModels = `-- name: ListBigModels :many
-SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, disabled, sort_order, created_at, updated_at
+SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, options, disabled, sort_order, created_at, updated_at
 FROM big_models
 ORDER BY provider_id ASC, sort_order ASC, id ASC
 `
@@ -402,6 +408,7 @@ func (q *Queries) ListBigModels(ctx context.Context) ([]BigModel, error) {
 			&i.ReasoningLevels,
 			&i.DefaultReasoningEffort,
 			&i.SupportsImages,
+			&i.Options,
 			&i.Disabled,
 			&i.SortOrder,
 			&i.CreatedAt,
@@ -421,7 +428,7 @@ func (q *Queries) ListBigModels(ctx context.Context) ([]BigModel, error) {
 }
 
 const listBigModelsByProvider = `-- name: ListBigModelsByProvider :many
-SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, disabled, sort_order, created_at, updated_at
+SELECT provider_id, id, name, cost_per_1m_in, cost_per_1m_out, cost_per_1m_in_cached, cost_per_1m_out_cached, context_window, default_max_tokens, can_reason, reasoning_levels, default_reasoning_effort, supports_images, options, disabled, sort_order, created_at, updated_at
 FROM big_models
 WHERE provider_id = ?
 ORDER BY sort_order ASC, id ASC
@@ -450,6 +457,7 @@ func (q *Queries) ListBigModelsByProvider(ctx context.Context, providerID string
 			&i.ReasoningLevels,
 			&i.DefaultReasoningEffort,
 			&i.SupportsImages,
+			&i.Options,
 			&i.Disabled,
 			&i.SortOrder,
 			&i.CreatedAt,
@@ -482,6 +490,7 @@ SET
     reasoning_levels = ?,
     default_reasoning_effort = ?,
     supports_images = ?,
+    options = ?,
     disabled = ?,
     sort_order = ?
 WHERE provider_id = ? AND id = ?
@@ -499,6 +508,7 @@ type UpdateBigModelParams struct {
 	ReasoningLevels        sql.NullString `json:"reasoning_levels"`
 	DefaultReasoningEffort sql.NullString `json:"default_reasoning_effort"`
 	SupportsImages         bool           `json:"supports_images"`
+	Options                sql.NullString `json:"options"`
 	Disabled               bool           `json:"disabled"`
 	SortOrder              int64          `json:"sort_order"`
 	ProviderID             string         `json:"provider_id"`
@@ -518,6 +528,7 @@ func (q *Queries) UpdateBigModel(ctx context.Context, arg UpdateBigModelParams) 
 		arg.ReasoningLevels,
 		arg.DefaultReasoningEffort,
 		arg.SupportsImages,
+		arg.Options,
 		arg.Disabled,
 		arg.SortOrder,
 		arg.ProviderID,

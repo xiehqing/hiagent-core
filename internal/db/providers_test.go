@@ -47,6 +47,7 @@ CREATE TABLE big_models (
     reasoning_levels TEXT,
     default_reasoning_effort TEXT,
     supports_images INTEGER NOT NULL DEFAULT 0,
+    options TEXT,
     disabled INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -86,10 +87,12 @@ CREATE TABLE big_models (
 		ReasoningLevels:        sql.NullString{String: `["low","high"]`, Valid: true},
 		DefaultReasoningEffort: sql.NullString{String: "high", Valid: true},
 		SupportsImages:         true,
+		Options:                sql.NullString{String: `{"temperature":0.6,"provider_options":{"extra_body":{"chat_template_kwargs":{"enable_thinking":true}}}}`, Valid: true},
 		SortOrder:              1,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "gpt-large", model.ID)
+	require.JSONEq(t, `{"temperature":0.6,"provider_options":{"extra_body":{"chat_template_kwargs":{"enable_thinking":true}}}}`, model.Options.String)
 
 	_, err = q.CreateBigModel(ctx, CreateBigModelParams{
 		ProviderID:       "openai-local",
@@ -137,11 +140,13 @@ CREATE TABLE big_models (
 		ReasoningLevels:        sql.NullString{String: `["medium"]`, Valid: true},
 		DefaultReasoningEffort: sql.NullString{String: "medium", Valid: true},
 		SupportsImages:         true,
+		Options:                sql.NullString{String: `{"top_p":0.9}`, Valid: true},
 		SortOrder:              3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "GPT Small v2", updatedModel.Name)
 	require.True(t, updatedModel.CanReason)
+	require.JSONEq(t, `{"top_p":0.9}`, updatedModel.Options.String)
 
 	err = q.DeleteBigModel(ctx, DeleteBigModelParams{ProviderID: "openai-local", ID: "gpt-small"})
 	require.NoError(t, err)
