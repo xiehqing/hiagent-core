@@ -1,11 +1,19 @@
 package appsdk
 
 import (
-	"charm.land/fantasy"
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"os"
+	"slices"
+	"strings"
+	"time"
+
+	"charm.land/fantasy"
+
 	"github.com/pkg/errors"
+
 	"github.com/xiehqing/hiagent-core/internal/agent"
 	mcpclient "github.com/xiehqing/hiagent-core/internal/agent/tools/mcp"
 	"github.com/xiehqing/hiagent-core/internal/app"
@@ -18,11 +26,6 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/pubsub"
 	"github.com/xiehqing/hiagent-core/internal/session"
 	"github.com/xiehqing/hiagent-core/internal/skills"
-	"log/slog"
-	"os"
-	"slices"
-	"strings"
-	"time"
 )
 
 type App struct {
@@ -104,6 +107,9 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 	for _, opt := range opts {
 		opt(o)
 	}
+	if err := agent.ValidateCustomTools(o.tools); err != nil {
+		return nil, fmt.Errorf("sdk.New: %w", err)
+	}
 	if o.cfg.WorkDir == "" {
 		return nil, fmt.Errorf("sdk.New: WorkDir is required (use sdk.WithWorkDir)")
 	}
@@ -124,7 +130,10 @@ func New(ctx context.Context, conn *sql.DB, opts ...Option) (*App, error) {
 		return nil, fmt.Errorf("sdk.New: failed to apply config options: %w", err)
 	}
 	logFinalAppConfigBindings(cfg)
-	app, err := app.NewWithSystemPrompt(ctx, conn, cfg, o.cfg.AdditionalSystemPrompt)
+	app, err := app.NewWithOptions(ctx, conn, cfg, app.RuntimeOptions{
+		AdditionalSystemPrompt: o.cfg.AdditionalSystemPrompt,
+		Tools:                  o.tools,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("sdk.New: failed to create app workspace: %w", err)
 	}

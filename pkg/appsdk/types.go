@@ -2,12 +2,15 @@ package appsdk
 
 import (
 	"fmt"
-	"github.com/xiehqing/hiagent-core/internal/history"
-	"github.com/xiehqing/hiagent-core/internal/message"
 	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
+
+	"charm.land/fantasy"
+
+	"github.com/xiehqing/hiagent-core/internal/history"
+	"github.com/xiehqing/hiagent-core/internal/message"
 )
 
 type DatabaseDriver string
@@ -33,11 +36,23 @@ type AppConfig struct {
 }
 
 type Options struct {
-	cfg AppConfig
+	cfg   AppConfig
+	tools []fantasy.AgentTool
 }
 
 // Option is a functional option for Engine creation.
 type Option func(*Options)
+
+// WithTools appends custom tools for the main agent. Tools are runtime-only,
+// survive model/tool refreshes, and are not inherited by sub-agents. Repeated
+// calls append tools; nil tools and duplicate names are rejected by New.
+// Tool handlers must implement their own authorization and honor cancellation.
+func WithTools(customTools ...fantasy.AgentTool) Option {
+	customTools = append([]fantasy.AgentTool(nil), customTools...)
+	return func(o *Options) {
+		o.tools = append(o.tools, customTools...)
+	}
+}
 
 func WithSkipPermissionRequests(skipPermissionRequests bool) Option {
 	return func(o *Options) {

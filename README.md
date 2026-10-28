@@ -165,18 +165,25 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 
-	"github.com/xiehqing/hiagent-core/internal/config"
+	_ "modernc.org/sqlite"
 	"github.com/xiehqing/hiagent-core/pkg/appsdk"
 )
 
 func main() {
-	app, err := appsdk.New(context.Background(),
+	conn, err := sql.Open("sqlite", `C:\project\.hiagent\hi_agent.db`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := appsdk.AutoMigrations(conn); err != nil {
+		log.Fatal(err)
+	}
+	app, err := appsdk.New(context.Background(), conn,
 		appsdk.WithWorkDir(`C:\project`),
 		appsdk.WithDataDir(`C:\project\.hiagent`),
 		appsdk.WithSkipPermissionRequests(true),
-		appsdk.WithConfigScope(config.ScopeWorkspace),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -194,13 +201,44 @@ Useful SDK options include:
 
 - `WithWorkDir(...)`
 - `WithDataDir(...)`
-- `WithDatabaseDriver(...)`
-- `WithDatabaseDSN(...)`
 - `WithSkipPermissionRequests(...)`
 - `WithSelectedProvider(...)`
 - `WithSelectedModel(...)`
-- `WithConfigScope(...)`
 - `WithAdditionalSystemPrompt(...)`
+- `WithTools(...)`
+
+Pass an initialized database connection with your provider/model configuration.
+`App.Shutdown()` closes that connection.
+
+Custom tools implement `charm.land/fantasy.AgentTool`. For typed inputs and
+automatic JSON Schema generation, use `fantasy.NewAgentTool`:
+
+```go
+greet := fantasy.NewAgentTool("greet", "Greet a person by name",
+	func(ctx context.Context, input struct {
+		Name string `json:"name" description:"Person to greet"`
+	}, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		return fantasy.NewTextResponse("Hello, " + input.Name), nil
+	},
+)
+
+app, err := appsdk.New(ctx, conn,
+	appsdk.WithWorkDir(workDir),
+	appsdk.WithTools(greet),
+)
+```
+
+Import `charm.land/fantasy` for this example. Repeated `WithTools` calls append
+tools. Tools remain available after model/tool refreshes and agent
+reinitialization, and are exposed only to the main agent. They are runtime
+dependencies and are not serialized into config. `options.disabled_tools` also
+applies to custom names. Nil tools, empty names, duplicate custom names, and
+conflicts with enabled built-in/MCP tools return errors. Custom tools use the
+existing PreToolUse hooks; handlers remain responsible for authorization,
+cancellation, and synchronization of shared business state. Provider cache
+options are isolated from the caller's tool object. Custom tool names and
+schemas should remain stable after initialization. Resources used by handlers
+remain owned by the caller.
 
 ## Development
 

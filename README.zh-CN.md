@@ -165,18 +165,25 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 
-	"github.com/xiehqing/hiagent-core/internal/config"
+	_ "modernc.org/sqlite"
 	"github.com/xiehqing/hiagent-core/pkg/appsdk"
 )
 
 func main() {
-	app, err := appsdk.New(context.Background(),
+	conn, err := sql.Open("sqlite", `C:\project\.hiagent\hi_agent.db`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := appsdk.AutoMigrations(conn); err != nil {
+		log.Fatal(err)
+	}
+	app, err := appsdk.New(context.Background(), conn,
 		appsdk.WithWorkDir(`C:\project`),
 		appsdk.WithDataDir(`C:\project\.hiagent`),
 		appsdk.WithSkipPermissionRequests(true),
-		appsdk.WithConfigScope(config.ScopeWorkspace),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -194,13 +201,40 @@ func main() {
 
 - `WithWorkDir(...)`
 - `WithDataDir(...)`
-- `WithDatabaseDriver(...)`
-- `WithDatabaseDSN(...)`
 - `WithSkipPermissionRequests(...)`
 - `WithSelectedProvider(...)`
 - `WithSelectedModel(...)`
-- `WithConfigScope(...)`
 - `WithAdditionalSystemPrompt(...)`
+- `WithTools(...)`
+
+传入的数据库连接需要完成初始化并配置好 provider/model。
+`App.Shutdown()` 会关闭该连接。
+
+自定义工具实现 `charm.land/fantasy.AgentTool` 即可。使用
+`fantasy.NewAgentTool` 可以根据输入结构体自动生成 JSON Schema：
+
+```go
+greet := fantasy.NewAgentTool("greet", "根据姓名打招呼",
+	func(ctx context.Context, input struct {
+		Name string `json:"name" description:"对方姓名"`
+	}, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
+		return fantasy.NewTextResponse("你好，" + input.Name), nil
+	},
+)
+
+app, err := appsdk.New(ctx, conn,
+	appsdk.WithWorkDir(workDir),
+	appsdk.WithTools(greet),
+)
+```
+
+该示例需要导入 `charm.land/fantasy`。多次调用 `WithTools` 会追加工具。
+自定义工具仅向主 Agent 开放，在模型/工具刷新和 Agent 重新初始化后仍然保留，
+作为运行时依赖保存，不写入配置。`options.disabled_tools` 同样适用于自定义工具名。
+nil 工具、空名称、自定义工具重名，以及与已启用的内置/MCP 工具重名都会返回错误。
+自定义工具接入现有 PreToolUse hooks；处理函数仍需自行处理鉴权、取消和共享业务状态的同步。
+provider 缓存参数与调用方的工具对象隔离。初始化后应保持工具名称和 Schema 稳定，
+处理函数依赖资源的生命周期由调用方管理。
 
 ## 开发说明
 

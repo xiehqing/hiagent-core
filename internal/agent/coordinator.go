@@ -87,6 +87,7 @@ type coordinator struct {
 	filetracker            filetracker.Service
 	lspManager             *lsp.Manager
 	additionalSystemPrompt string
+	customTools            []fantasy.AgentTool
 	notify                 pubsub.Publisher[notify.Notification]
 
 	currentAgent SessionAgent
@@ -111,7 +112,11 @@ func NewCoordinator(
 	filetracker filetracker.Service,
 	lspManager *lsp.Manager,
 	notify pubsub.Publisher[notify.Notification],
+	customTools ...fantasy.AgentTool,
 ) (Coordinator, error) {
+	if err := ValidateCustomTools(customTools); err != nil {
+		return nil, err
+	}
 	// Discover skills once at session start.
 	allSkills, activeSkills := discoverSkills(cfg)
 	skillTracker := skills.NewTracker(activeSkills)
@@ -126,6 +131,7 @@ func NewCoordinator(
 		lspManager:             lspManager,
 		notify:                 notify,
 		additionalSystemPrompt: additionalSystemPrompt,
+		customTools:            slices.Clone(customTools),
 		agents:                 make(map[string]SessionAgent),
 		allSkills:              allSkills,
 		activeSkills:           activeSkills,
@@ -406,6 +412,12 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, age
 	if err != nil {
 		return nil, err
 	}
+	// Build synchronously so invalid custom tools fail initialization, rather
+	// than surfacing only when the first prompt is submitted.
+	agentTools, err := c.buildTools(ctx, agent, isSubAgent)
+	if err != nil {
+		return nil, err
+	}
 
 	largeProviderCfg, _ := c.cfg.Config().Providers.Get(large.ModelCfg.Provider)
 	result := NewSessionAgent(SessionAgentOptions{
@@ -418,7 +430,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, age
 		IsYolo:               c.permissions.SkipRequests(),
 		Sessions:             c.sessions,
 		Messages:             c.messages,
-		Tools:                nil,
+		Tools:                agentTools,
 		Notify:               c.notify,
 	})
 
@@ -428,15 +440,6 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, age
 			return err
 		}
 		result.SetSystemPrompt(systemPrompt)
-		return nil
-	})
-
-	c.readyWg.Go(func() error {
-		tools, err := c.buildTools(ctx, agent, isSubAgent)
-		if err != nil {
-			return err
-		}
-		result.SetTools(tools)
 		return nil
 	})
 
@@ -537,6 +540,13 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 				break
 			}
 			slog.Debug("MCP not allowed", "tool", tool.Name(), "agent", agent.Name)
+		}
+	}
+	if !isSubAgent {
+		var err error
+		filteredTools, err = mergeCustomTools(filteredTools, c.customTools, c.cfg.Config().Options.DisabledTools)
+		if err != nil {
+			return nil, err
 		}
 	}
 	slices.SortFunc(filteredTools, func(a, b fantasy.AgentTool) int {

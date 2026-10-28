@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/xiehqing/hiagent-core/internal/provider"
 	"io"
 	"log/slog"
 	"os"
@@ -22,6 +21,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/charmbracelet/x/term"
+
 	"github.com/xiehqing/hiagent-core/internal/agent"
 	"github.com/xiehqing/hiagent-core/internal/agent/notify"
 	"github.com/xiehqing/hiagent-core/internal/agent/tools/mcp"
@@ -35,6 +35,7 @@ import (
 	"github.com/xiehqing/hiagent-core/internal/lsp"
 	"github.com/xiehqing/hiagent-core/internal/message"
 	"github.com/xiehqing/hiagent-core/internal/permission"
+	"github.com/xiehqing/hiagent-core/internal/provider"
 	"github.com/xiehqing/hiagent-core/internal/pubsub"
 	"github.com/xiehqing/hiagent-core/internal/session"
 	"github.com/xiehqing/hiagent-core/internal/shell"
@@ -64,7 +65,8 @@ type App struct {
 
 	LSPManager *lsp.Manager
 
-	config *config.ConfigStore
+	config         *config.ConfigStore
+	runtimeOptions RuntimeOptions
 
 	serviceEventsWG *sync.WaitGroup
 	eventsCtx       context.Context
@@ -83,6 +85,21 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 
 // NewWithSystemPrompt initializes a new application instance.
 func NewWithSystemPrompt(ctx context.Context, conn *sql.DB, store *config.ConfigStore, additionalSystemPrompt string) (*App, error) {
+	return NewWithOptions(ctx, conn, store, RuntimeOptions{AdditionalSystemPrompt: additionalSystemPrompt})
+}
+
+// RuntimeOptions contains dependencies that cannot be persisted in config.
+type RuntimeOptions struct {
+	AdditionalSystemPrompt string
+	Tools                  []fantasy.AgentTool
+}
+
+// NewWithOptions initializes an application with instance-local runtime options.
+func NewWithOptions(ctx context.Context, conn *sql.DB, store *config.ConfigStore, options RuntimeOptions) (*App, error) {
+	if err := agent.ValidateCustomTools(options.Tools); err != nil {
+		return nil, err
+	}
+	options.Tools = append([]fantasy.AgentTool(nil), options.Tools...)
 	q := db.New(conn)
 	sessions := session.NewService(q, conn)
 	messages := message.NewService(q)
@@ -106,12 +123,21 @@ func NewWithSystemPrompt(ctx context.Context, conn *sql.DB, store *config.Config
 
 		globalCtx: ctx,
 
-		config: store,
+		config:         store,
+		runtimeOptions: options,
 
 		events:             pubsub.NewBroker[tea.Msg](),
 		serviceEventsWG:    &sync.WaitGroup{},
 		tuiWG:              &sync.WaitGroup{},
 		agentNotifications: pubsub.NewBroker[notify.Notification](),
+	}
+
+	// Reject invalid tool bindings before starting background services. An
+	// initialization error must not leave event subscriptions/MCP tasks running.
+	if cfg.IsConfigured() {
+		if err := app.InitCoderAgent(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize coder agent: %w", err)
+		}
 	}
 
 	app.setupEvents()
@@ -133,10 +159,6 @@ func NewWithSystemPrompt(ctx context.Context, conn *sql.DB, store *config.Config
 		slog.Warn("No agent configuration found")
 		return app, nil
 	}
-	if err := app.InitCoderAgentWithSystemPrompt(ctx, additionalSystemPrompt); err != nil {
-		return nil, fmt.Errorf("failed to initialize coder agent: %w", err)
-	}
-
 	// Set up callback for LSP state updates.
 	app.LSPManager.SetCallback(func(name string, client *lsp.Client) {
 		if client == nil {
@@ -523,7 +545,7 @@ func setupSubscriber[T any](
 }
 
 func (app *App) InitCoderAgent(ctx context.Context) error {
-	return app.InitCoderAgentWithSystemPrompt(ctx, "")
+	return app.InitCoderAgentWithSystemPrompt(ctx, app.runtimeOptions.AdditionalSystemPrompt)
 }
 
 func (app *App) InitCoderAgentWithSystemPrompt(ctx context.Context, additionalSystemPrompt string) error {
@@ -543,6 +565,7 @@ func (app *App) InitCoderAgentWithSystemPrompt(ctx context.Context, additionalSy
 		app.FileTracker,
 		app.LSPManager,
 		app.agentNotifications,
+		app.runtimeOptions.Tools...,
 	)
 	if err != nil {
 		slog.Error("Failed to create coder agent", "err", err)
