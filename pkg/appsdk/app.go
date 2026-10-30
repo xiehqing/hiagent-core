@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -148,6 +149,18 @@ func applyAppConfigOptions(store *config.ConfigStore, cfg AppConfig) error {
 	if store.Config().Options == nil {
 		store.Config().Options = &config.Options{}
 	}
+	for id, format := range cfg.ProviderAPIFormats {
+		provider, ok := store.Config().Providers.Get(id)
+		if !ok {
+			return fmt.Errorf("provider %q is not configured", id)
+		}
+		provider.APIFormat = format
+		if err := provider.ValidateAPIFormat(); err != nil {
+			return err
+		}
+		store.Config().Providers.Set(id, provider)
+	}
+	store.Overrides().ProviderAPIFormats = maps.Clone(cfg.ProviderAPIFormats)
 
 	if cfg.MCPServers != nil {
 		store.Config().MCP = make(config.MCPs, len(cfg.MCPServers))

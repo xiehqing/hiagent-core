@@ -240,6 +240,42 @@ options are isolated from the caller's tool object. Custom tool names and
 schemas should remain stable after initialization. Resources used by handlers
 remain owned by the caller.
 
+## OpenAI protocol selection
+
+Providers of type `openai` or `openai-compat` accept `api_format`:
+
+| Value | Behavior |
+|---|---|
+| `auto` (default) | GPT-6 and later generations use Responses; other models retain their existing routing |
+| `chat-completions` | Use `/chat/completions` for Chat-only gateways |
+| `responses` | Use `/responses`, including gateway-specific model aliases |
+
+Configuration lives in the global/workspace JSON records in `data_config`.
+For an existing provider, add this fragment; workspace settings take precedence:
+
+```json
+{"providers":{"my-relay":{"api_format":"responses"}}}
+```
+
+The SDK also supports an instance-local override that survives config reloads
+without being persisted:
+
+```go
+app, err := appsdk.New(ctx, conn,
+	appsdk.WithWorkDir(workDir),
+	appsdk.WithProviderAPIFormat("my-relay", appsdk.APIFormatResponses),
+)
+```
+
+Use `appsdk.APIFormatChatCompletions` for a Chat-only gateway. GPT-6 requests use
+`max_completion_tokens` for Chat and `max_output_tokens` for Responses, with
+reasoning parameters adapted as well. Existing `max_tokens` behavior for older
+third-party models is preserved.
+
+Official GPT-6.1 Sol tool calls require Responses. Forcing Chat requires the
+gateway to translate tool calls itself. Failed requests are not retried using a
+different protocol automatically.
+
 ## Development
 
 Run focused tests:

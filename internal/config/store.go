@@ -41,6 +41,7 @@ type configSnapshot struct {
 // the lifetime of the process (or workspace).
 type RuntimeOverrides struct {
 	SkipPermissionRequests bool
+	ProviderAPIFormats     map[string]APIFormat
 }
 
 // ConfigStore is the single entry point for all config access. It owns the
@@ -110,6 +111,11 @@ func applyRuntimeOverrides(cfg *Config, overrides RuntimeOverrides) {
 	}
 	if cfg.Options == nil {
 		cfg.Options = &Options{}
+	}
+	for id, format := range overrides.ProviderAPIFormats {
+		provider, _ := cfg.Providers.Get(id)
+		provider.APIFormat = format
+		cfg.Providers.Set(id, provider)
 	}
 }
 
@@ -568,10 +574,12 @@ func (c *Config) configureProviders(store *ConfigStore, env env.Env, resolver Va
 			APIKeyTemplate:     p.APIKey, // Store original template for re-resolution
 			OAuthToken:         config.OAuthToken,
 			Type:               p.Type,
+			APIFormat:          config.APIFormat,
 			Disable:            config.Disable,
 			SystemPromptPrefix: config.SystemPromptPrefix,
 			ExtraHeaders:       headers,
 			ExtraBody:          config.ExtraBody,
+			ProviderOptions:    config.ProviderOptions,
 			ExtraParams:        make(map[string]string),
 			Models:             p.Models,
 		}
@@ -720,6 +728,12 @@ func (c *Config) configureProviders(store *ConfigStore, env env.Env, resolver Va
 
 	if c.Providers.Len() == 0 && c.Options.DisableDefaultProviders {
 		return fmt.Errorf("default providers are disabled and there are no custom providers are configured")
+	}
+	for id, provider := range c.Providers.Seq2() {
+		provider.ID = id
+		if err := provider.ValidateAPIFormat(); err != nil {
+			return err
+		}
 	}
 
 	return nil

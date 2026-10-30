@@ -9,6 +9,7 @@ import (
 
 	"charm.land/fantasy"
 
+	"github.com/xiehqing/hiagent-core/internal/config"
 	"github.com/xiehqing/hiagent-core/internal/history"
 	"github.com/xiehqing/hiagent-core/internal/message"
 )
@@ -33,6 +34,27 @@ type AppConfig struct {
 	SkillsPaths               []string             `json:"skillsPaths,omitempty"`
 	Skills                    []string             `json:"skills,omitempty"`
 	DisabledSkills            []string             `json:"disabledSkills,omitempty"`
+	ProviderAPIFormats        map[string]APIFormat `json:"providerApiFormats,omitempty"`
+}
+
+// APIFormat selects Chat Completions, Responses, or automatic model routing.
+type APIFormat = config.APIFormat
+
+const (
+	APIFormatAuto            = config.APIFormatAuto
+	APIFormatChatCompletions = config.APIFormatChatCompletions
+	APIFormatResponses       = config.APIFormatResponses
+)
+
+// WithProviderAPIFormat overrides a provider's protocol for this SDK instance.
+// The override survives config reloads and is not persisted to the database.
+func WithProviderAPIFormat(providerID string, format APIFormat) Option {
+	return func(o *Options) {
+		if o.cfg.ProviderAPIFormats == nil {
+			o.cfg.ProviderAPIFormats = make(map[string]APIFormat)
+		}
+		o.cfg.ProviderAPIFormats[providerID] = format
+	}
 }
 
 type Options struct {

@@ -983,7 +983,7 @@ func (a *sessionAgent) generateTitle(ctx context.Context, sessionID string, user
 	systemPromptPrefix := a.systemPromptPrefix.Get()
 
 	var maxOutputTokens int64 = 40
-	if smallModel.CatwalkCfg.CanReason {
+	if smallModel.CatwalkCfg.CanReason || isNewGPTModel(smallModel.CatwalkCfg.ID) {
 		maxOutputTokens = smallModel.CatwalkCfg.DefaultMaxTokens
 	}
 

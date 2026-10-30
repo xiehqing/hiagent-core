@@ -236,6 +236,39 @@ nil 工具、空名称、自定义工具重名，以及与已启用的内置/MCP
 provider 缓存参数与调用方的工具对象隔离。初始化后应保持工具名称和 Schema 稳定，
 处理函数依赖资源的生命周期由调用方管理。
 
+## OpenAI 协议选择
+
+`openai` 和 `openai-compat` provider 支持 `api_format`：
+
+| 值 | 行为 |
+|---|---|
+| `auto`（默认） | GPT-6 及后续代际使用 Responses；其他模型保持原有路由规则 |
+| `chat-completions` | 使用 `/chat/completions`，供只支持 Chat 的中转使用 |
+| `responses` | 使用 `/responses`，也适用于中转自定义的模型别名 |
+
+配置保存在数据库 `data_config` 的 global/workspace JSON 记录中。已有 provider
+可以增加以下配置片段，工作区配置优先于全局配置：
+
+```json
+{"providers":{"my-relay":{"api_format":"responses"}}}
+```
+
+SDK 可按实例覆盖协议，覆盖会保留到配置重载后，但不写入数据库：
+
+```go
+app, err := appsdk.New(ctx, conn,
+	appsdk.WithWorkDir(workDir),
+	appsdk.WithProviderAPIFormat("my-relay", appsdk.APIFormatResponses),
+)
+```
+
+只支持 Chat 的中转可改用 `appsdk.APIFormatChatCompletions`。GPT-6 系列在 Chat
+模式下发送 `max_completion_tokens`，Responses 模式下发送 `max_output_tokens`，
+同时处理推理参数；第三方旧模型原有的 `max_tokens` 行为保持不变。
+
+GPT-6.1 Sol 的官方工具调用要求 Responses API。若强制 Chat 模式，需要中转服务
+自行支持工具协议转换。不会在请求失败后自动切换协议重试。
+
 ## 开发说明
 
 运行局部测试：
